@@ -1,26 +1,53 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --background: #050906;
+  --foreground: #e6f4ee;
+  --surface: #0c1512;
+  --surface-strong: #10211a;
+  --surface-muted: #0a110e;
+  --border: #1d2c25;
+  --muted: #8ea39a;
+  --muted-strong: #b7c9bf;
+  --supabase-green: #3ecf8e;
+  --supabase-green-rgb: 62 207 142;
+  --supabase-green-dark: #1f9d6b;
+  --supabase-green-bright: #62e6a7;
+  --supabase-ink: #0b1210;
+  --supabase-mist: #0f241c;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
