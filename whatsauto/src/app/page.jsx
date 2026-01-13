@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AuthLoading from "../components/auth/AuthLoading";
 import LoginView from "../components/auth/LoginView";
 import DashboardView from "../components/dashboard/DashboardView";
@@ -22,9 +22,12 @@ export default function Home() {
     pendingCount: 0,
     confirmedCount: 0,
   });
+  const [services, setServices] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState("");
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     let mounted = true;
@@ -51,6 +54,34 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const refreshDashboardData = useCallback(async () => {
+    if (!session || !mountedRef.current) return;
+    setDataLoading(true);
+    setDataError("");
+
+    const result = await fetchDashboardData({
+      supabase,
+      userId: session.user.id,
+    });
+
+    if (!mountedRef.current) return;
+
+    setCompanyName(result.companyName);
+    setEmployee(result.employee);
+    setSummary(result.summary);
+    setServices(result.services);
+    setEmployees(result.employees);
+    setUpcomingAppointments(result.upcomingAppointments);
+    setDataError(result.error);
+    setDataLoading(false);
+  }, [session]);
+
+  useEffect(() => {
     if (!session) {
       setCompanyName("");
       setEmployee(null);
@@ -60,39 +91,16 @@ export default function Home() {
         pendingCount: 0,
         confirmedCount: 0,
       });
+      setServices([]);
+      setEmployees([]);
       setUpcomingAppointments([]);
       setDataLoading(false);
       setDataError("");
       return;
     }
 
-    let active = true;
-
-    const loadDashboardData = async () => {
-      setDataLoading(true);
-      setDataError("");
-
-      const result = await fetchDashboardData({
-        supabase,
-        userId: session.user.id,
-      });
-
-      if (!active) return;
-
-      setCompanyName(result.companyName);
-      setEmployee(result.employee);
-      setSummary(result.summary);
-      setUpcomingAppointments(result.upcomingAppointments);
-      setDataError(result.error);
-      setDataLoading(false);
-    };
-
-    loadDashboardData();
-
-    return () => {
-      active = false;
-    };
-  }, [session]);
+    refreshDashboardData();
+  }, [session, refreshDashboardData]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -143,6 +151,8 @@ export default function Home() {
   const employeeEmail = employee?.correo || userEmail;
   const employeePhone = employee?.telefono || "--";
   const employeeProfile = {
+    id: employee?.uuid,
+    companyId: employee?.id_empresa,
     name: employeeName,
     role: employeeRole,
     email: employeeEmail,
@@ -171,8 +181,11 @@ export default function Home() {
             dataError={dataError}
             dataLoading={dataLoading}
             employee={employeeProfile}
+            employees={employees}
             onSignOut={handleSignOut}
+            onRefreshData={refreshDashboardData}
             summary={summary}
+            services={services}
             upcomingAppointments={upcomingAppointments}
           />
         ) : (

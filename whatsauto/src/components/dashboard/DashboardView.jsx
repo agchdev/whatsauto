@@ -10,21 +10,30 @@ import {
 } from "../../lib/theme";
 import CompanyHeader from "./CompanyHeader";
 import Sidebar from "./Sidebar";
+import ServicesPanel from "./ServicesPanel";
 import StatsSummary from "./StatsSummary";
 import UpcomingAppointmentsTable from "./UpcomingAppointmentsTable";
 
 export default function DashboardView({
-  activeKey = "panel",
+  activeKey: initialActiveKey = "panel",
   companyName,
   dataError,
   dataLoading,
   employee,
+  employees,
   summary,
+  services,
   upcomingAppointments,
   onSignOut,
+  onRefreshData,
 }) {
+  const [activeKey, setActiveKey] = useState(initialActiveKey);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [paletteKey, setPaletteKey] = useState(() => loadStoredPalette());
+
+  useEffect(() => {
+    setActiveKey(initialActiveKey);
+  }, [initialActiveKey]);
 
   useEffect(() => {
     const appliedKey = applyPalette(paletteKey);
@@ -49,6 +58,8 @@ export default function DashboardView({
     setSidebarExpanded((prev) => !prev);
   };
 
+  const isServicesView = activeKey === "servicios";
+
   return (
     <div className="relative flex w-full">
       <Sidebar
@@ -57,6 +68,7 @@ export default function DashboardView({
         employeeName={employee.name}
         employeeRole={employee.role}
         isExpanded={sidebarExpanded}
+        onNavigate={setActiveKey}
         onToggle={handleToggleSidebar}
         onPaletteChange={setPaletteKey}
         onSignOut={onSignOut}
@@ -77,18 +89,30 @@ export default function DashboardView({
             </div>
           )}
 
-          <StatsSummary
-            completedCount={summary.completedCount}
-            confirmedCount={summary.confirmedCount}
-            isLoading={dataLoading}
-            pendingCount={summary.pendingCount}
-            totalIncome={summary.totalIncome}
-          />
-
-          <UpcomingAppointmentsTable
-            appointments={upcomingAppointments}
-            isLoading={dataLoading}
-          />
+          {isServicesView ? (
+            <ServicesPanel
+              canManage={employee.role === "boss"}
+              companyId={employee.companyId}
+              employees={employees}
+              isLoading={dataLoading}
+              onRefresh={onRefreshData}
+              services={services}
+            />
+          ) : (
+            <>
+              <StatsSummary
+                completedCount={summary.completedCount}
+                confirmedCount={summary.confirmedCount}
+                isLoading={dataLoading}
+                pendingCount={summary.pendingCount}
+                totalIncome={summary.totalIncome}
+              />
+              <UpcomingAppointmentsTable
+                appointments={upcomingAppointments}
+                isLoading={dataLoading}
+              />
+            </>
+          )}
         </section>
       </div>
     </div>

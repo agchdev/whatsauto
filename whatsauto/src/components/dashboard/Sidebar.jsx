@@ -116,6 +116,7 @@ export default function Sidebar({
   employeeRole,
   employeeEmail,
   isExpanded,
+  onNavigate,
   onToggle,
   onPaletteChange,
   paletteKey,
@@ -182,6 +183,7 @@ export default function Sidebar({
                   ? "bg-[color:var(--surface-strong)] text-[color:var(--foreground)] shadow-[0_18px_40px_-30px_rgba(0,0,0,0.8)]"
                   : "text-[color:var(--muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--muted-strong)]"
               }`}
+              onClick={() => onNavigate?.(item.key)}
               title={!isExpanded ? item.label : undefined}
               type="button"
             >

@@ -25,6 +25,8 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
         pendingCount: 0,
         confirmedCount: 0,
       },
+      services: [],
+      employees: [],
       upcomingAppointments: [],
       error: buildErrorMessage(
         "No pudimos cargar los datos del empleado.",
@@ -45,39 +47,73 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
   const scopeValue =
     employeeData.role === "boss" ? employeeData.id_empresa : employeeData.uuid;
 
+  // Citas realizadas: base para ingresos. Cambia el estado si tu regla de ingresos es distinta.
+  const completedPromise = supabase
+    .from("citas")
+    .select("uuid,tiempo_fin,servicios(precio)")
+    .eq(scopeField, scopeValue)
+    .eq("estado", "realizada");
+
+  // Citas futuras: mostramos solo pendientes/confirmadas/realizadas por claridad.
+  // Ajusta "visibleStatuses" si quieres incluir o excluir estados.
+  const upcomingPromise = supabase
+    .from("citas")
+    .select(
+      "uuid,tiempo_inicio,tiempo_fin,titulo,estado,clientes(nombre,telefono),servicios(nombre,precio)"
+    )
+    .eq(scopeField, scopeValue)
+    .in("estado", visibleStatuses)
+    .gte("tiempo_fin", nowIso)
+    .order("tiempo_inicio", { ascending: true })
+    .limit(10);
+
+  // Conteos para el resumen. Usamos head:true para no traer filas, solo el count.
+  const pendingPromise = supabase
+    .from("citas")
+    .select("uuid", { count: "exact", head: true })
+    .eq(scopeField, scopeValue)
+    .eq("estado", "pendiente");
+
+  const confirmedPromise = supabase
+    .from("citas")
+    .select("uuid", { count: "exact", head: true })
+    .eq(scopeField, scopeValue)
+    .eq("estado", "confirmada");
+
+  // Servicios de la empresa con empleados asignados.
+  // Modifica el select para agregar/quitar campos o relaciones.
+  const servicesPromise = supabase
+    .from("servicios")
+    .select(
+      "uuid,nombre,duracion,precio,servicios_empleados(empleados(uuid,nombre,correo))"
+    )
+    .eq("id_empresa", employeeData.id_empresa)
+    .order("nombre", { ascending: true });
+
+  // Lista de empleados para el selector de asignacion del formulario.
+  // Filtra aqui si quieres ocultar empleados inactivos o por role.
+  const employeesPromise = supabase
+    .from("empleados")
+    .select("uuid,nombre,correo,role,activo")
+    .eq("id_empresa", employeeData.id_empresa)
+    .order("nombre", { ascending: true });
+
   const [
     companyResponse,
     completedResponse,
     upcomingResponse,
     pendingResponse,
     confirmedResponse,
+    servicesResponse,
+    employeesResponse,
   ] = await Promise.all([
     companyPromise,
-    supabase
-      .from("citas")
-      .select("uuid,tiempo_fin,servicios(precio)")
-      .eq(scopeField, scopeValue)
-      .eq("estado", "realizada"),
-    supabase
-      .from("citas")
-      .select(
-        "uuid,tiempo_inicio,tiempo_fin,titulo,estado,clientes(nombre,telefono),servicios(nombre,precio)"
-      )
-      .eq(scopeField, scopeValue)
-      .in("estado", visibleStatuses)
-      .gte("tiempo_fin", nowIso)
-      .order("tiempo_inicio", { ascending: true })
-      .limit(10),
-    supabase
-      .from("citas")
-      .select("uuid", { count: "exact", head: true })
-      .eq(scopeField, scopeValue)
-      .eq("estado", "pendiente"),
-    supabase
-      .from("citas")
-      .select("uuid", { count: "exact", head: true })
-      .eq(scopeField, scopeValue)
-      .eq("estado", "confirmada"),
+    completedPromise,
+    upcomingPromise,
+    pendingPromise,
+    confirmedPromise,
+    servicesPromise,
+    employeesPromise,
   ]);
 
   if (companyResponse?.error) {
@@ -117,6 +153,16 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
       )
     );
   }
+  if (servicesResponse?.error) {
+    errors.push(
+      buildErrorMessage("No pudimos cargar los servicios.", servicesResponse.error)
+    );
+  }
+  if (employeesResponse?.error) {
+    errors.push(
+      buildErrorMessage("No pudimos cargar los empleados.", employeesResponse.error)
+    );
+  }
 
   const completedAppointments = completedResponse?.data ?? [];
   const totalIncome = completedAppointments.reduce((acc, appointment) => {
@@ -137,6 +183,8 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
       pendingCount: Number.isNaN(pendingCount) ? 0 : pendingCount,
       confirmedCount: Number.isNaN(confirmedCount) ? 0 : confirmedCount,
     },
+    services: servicesResponse?.data ?? [],
+    employees: employeesResponse?.data ?? [],
     upcomingAppointments: upcomingResponse?.data ?? [],
     error: errors.join(" "),
   };
