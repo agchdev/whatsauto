@@ -9,6 +9,7 @@ import {
   THEME_STORAGE_KEY,
 } from "../../lib/theme";
 import CompanyHeader from "./CompanyHeader";
+import EmployeesPanel from "./EmployeesPanel";
 import Sidebar from "./Sidebar";
 import ServicesPanel from "./ServicesPanel";
 import StatsSummary from "./StatsSummary";
@@ -58,6 +59,7 @@ export default function DashboardView({
     setSidebarExpanded((prev) => !prev);
   };
 
+  const isEmployeesView = activeKey === "empleados";
   const isServicesView = activeKey === "servicios";
 
   return (
@@ -89,7 +91,15 @@ export default function DashboardView({
             </div>
           )}
 
-          {isServicesView ? (
+          {isEmployeesView ? (
+            <EmployeesPanel
+              canManage={employee.role === "boss"}
+              companyId={employee.companyId}
+              employees={employees}
+              isLoading={dataLoading}
+              onRefresh={onRefreshData}
+            />
+          ) : isServicesView ? (
             <ServicesPanel
               canManage={employee.role === "boss"}
               companyId={employee.companyId}

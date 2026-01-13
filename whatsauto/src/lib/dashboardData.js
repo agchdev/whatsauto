@@ -90,11 +90,11 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
     .eq("id_empresa", employeeData.id_empresa)
     .order("nombre", { ascending: true });
 
-  // Lista de empleados para el selector de asignacion del formulario.
-  // Filtra aqui si quieres ocultar empleados inactivos o por role.
+  // Lista de empleados para el panel de empleados y asignaciones.
+  // Modifica este select si quieres mostrar mas campos o filtrar por role/activo.
   const employeesPromise = supabase
     .from("empleados")
-    .select("uuid,nombre,correo,role,activo")
+    .select("uuid,nombre,correo,telefono,dni,role,activo")
     .eq("id_empresa", employeeData.id_empresa)
     .order("nombre", { ascending: true });
 
