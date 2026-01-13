@@ -1,4 +1,5 @@
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import ThemeSync from "../components/theme/ThemeSync";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -22,6 +23,7 @@ export default function RootLayout({ children }) {
       <body
         className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased`}
       >
+        <ThemeSync />
         {children}
       </body>
     </html>

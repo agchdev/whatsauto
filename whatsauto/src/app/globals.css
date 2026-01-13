@@ -16,6 +16,10 @@
   --supabase-green-bright: #62e6a7;
   --supabase-ink: #0b1210;
   --supabase-mist: #0f241c;
+  --theme-glow: #0f241c;
+  --theme-base: #030504;
+  --theme-base-rgb: 3 5 4;
+  --theme-dot-rgb: 62 207 142;
 }
 
 @theme inline {

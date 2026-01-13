@@ -16,8 +16,13 @@ export default function Home() {
   const [authReady, setAuthReady] = useState(false);
   const [companyName, setCompanyName] = useState("");
   const [employee, setEmployee] = useState(null);
-  const [services, setServices] = useState([]);
-  const [clients, setClients] = useState([]);
+  const [summary, setSummary] = useState({
+    totalIncome: 0,
+    completedCount: 0,
+    pendingCount: 0,
+    confirmedCount: 0,
+  });
+  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState("");
 
@@ -49,8 +54,13 @@ export default function Home() {
     if (!session) {
       setCompanyName("");
       setEmployee(null);
-      setServices([]);
-      setClients([]);
+      setSummary({
+        totalIncome: 0,
+        completedCount: 0,
+        pendingCount: 0,
+        confirmedCount: 0,
+      });
+      setUpcomingAppointments([]);
       setDataLoading(false);
       setDataError("");
       return;
@@ -71,8 +81,8 @@ export default function Home() {
 
       setCompanyName(result.companyName);
       setEmployee(result.employee);
-      setServices(result.services);
-      setClients(result.clients);
+      setSummary(result.summary);
+      setUpcomingAppointments(result.upcomingAppointments);
       setDataError(result.error);
       setDataLoading(false);
     };
@@ -124,6 +134,9 @@ export default function Home() {
   const userEmail = session?.user?.email ?? "Equipo";
   const mainAlignment =
     !authReady || !hasSession ? "items-center" : "items-stretch";
+  const mainClassName = hasSession
+    ? "relative flex min-h-screen w-full px-0 py-0"
+    : `relative mx-auto flex min-h-screen max-w-6xl px-6 py-12 sm:py-16 ${mainAlignment}`;
   const companyDisplayName = companyName || "Empresa";
   const employeeName = employee?.nombre || userEmail;
   const employeeRole = employee?.role || "staff";
@@ -141,28 +154,26 @@ export default function Home() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_#0f241c,_#050906_55%,_#030504_100%)]">
+    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_var(--theme-glow),_var(--background)_55%,_var(--theme-base)_100%)]">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-24 right-8 h-[320px] w-[320px] rounded-full bg-[rgb(var(--supabase-green-rgb)/0.18)] blur-[140px] motion-safe:animate-[floaty_12s_ease-in-out_infinite]" />
-        <div className="absolute -bottom-36 left-[-140px] h-[420px] w-[420px] rounded-full bg-[rgba(5,9,6,0.7)] blur-[140px]" />
-        <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(rgba(62,207,142,0.08)_1px,transparent_1px)] [background-size:18px_18px]" />
+        <div className="absolute -bottom-36 left-[-140px] h-[420px] w-[420px] rounded-full bg-[rgb(var(--theme-base-rgb)/0.7)] blur-[140px]" />
+        <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(rgb(var(--theme-dot-rgb)/0.08)_1px,transparent_1px)] [background-size:18px_18px]" />
       </div>
 
-      <main
-        className={`relative mx-auto flex min-h-screen max-w-6xl px-6 py-12 sm:py-16 ${mainAlignment}`}
-      >
+      <main className={mainClassName}>
         {!authReady ? (
           <AuthLoading />
         ) : hasSession ? (
           <DashboardView
             activeKey="panel"
-            clients={clients}
             companyName={companyDisplayName}
             dataError={dataError}
             dataLoading={dataLoading}
             employee={employeeProfile}
             onSignOut={handleSignOut}
-            services={services}
+            summary={summary}
+            upcomingAppointments={upcomingAppointments}
           />
         ) : (
           <LoginView
