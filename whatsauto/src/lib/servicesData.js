@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient";
+import { getSupabaseClient } from "./supabaseClient";
 
 export const createServiceWithAssignment = async ({
   companyId,
@@ -7,6 +7,13 @@ export const createServiceWithAssignment = async ({
   price,
   employeeId,
 }) => {
+  let supabase;
+  try {
+    supabase = getSupabaseClient();
+  } catch (error) {
+    return { data: null, error };
+  }
+
   // 1) Crear el servicio base. Agrega o elimina campos segun tu esquema.
   const { data: createdService, error: serviceError } = await supabase
     .from("servicios")
@@ -44,6 +51,13 @@ export const updateServiceWithAssignment = async ({
   price,
   employeeId,
 }) => {
+  let supabase;
+  try {
+    supabase = getSupabaseClient();
+  } catch (error) {
+    return { error };
+  }
+
   // 1) Actualizar los datos del servicio.
   const { error: updateError } = await supabase
     .from("servicios")

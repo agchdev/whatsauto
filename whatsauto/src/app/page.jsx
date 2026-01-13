@@ -5,7 +5,7 @@ import AuthLoading from "../components/auth/AuthLoading";
 import LoginView from "../components/auth/LoginView";
 import DashboardView from "../components/dashboard/DashboardView";
 import { fetchDashboardData } from "../lib/dashboardData";
-import { supabase } from "../lib/supabaseClient";
+import { getSupabaseClient } from "../lib/supabaseClient";
 
 const initialStatus = { type: "idle", message: "" };
 
@@ -28,17 +28,39 @@ export default function Home() {
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState("");
   const mountedRef = useRef(true);
+  const resolveClient = useCallback(() => {
+    try {
+      return { client: getSupabaseClient(), error: null };
+    } catch (error) {
+      return { client: null, error };
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
+    const { client, error } = resolveClient();
 
-    supabase.auth.getSession().then(({ data }) => {
+    if (error) {
+      if (mounted) {
+        setStatus({
+          type: "error",
+          message:
+            "Faltan variables de entorno de Supabase. Revisa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+        });
+        setAuthReady(true);
+      }
+      return () => {
+        mounted = false;
+      };
+    }
+
+    client.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setSession(data.session);
       setAuthReady(true);
     });
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
+    const { data: authListener } = client.auth.onAuthStateChange(
       (_event, nextSession) => {
         if (!mounted) return;
         setSession(nextSession);
@@ -51,7 +73,7 @@ export default function Home() {
       mounted = false;
       authListener?.subscription?.unsubscribe();
     };
-  }, []);
+  }, [resolveClient]);
 
   useEffect(() => {
     return () => {
@@ -64,8 +86,17 @@ export default function Home() {
     setDataLoading(true);
     setDataError("");
 
+    const { client, error } = resolveClient();
+    if (error || !client) {
+      setDataError(
+        "Faltan variables de entorno de Supabase. Revisa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY."
+      );
+      setDataLoading(false);
+      return;
+    }
+
     const result = await fetchDashboardData({
-      supabase,
+      supabase: client,
       userId: session.user.id,
     });
 
@@ -79,7 +110,7 @@ export default function Home() {
     setUpcomingAppointments(result.upcomingAppointments);
     setDataError(result.error);
     setDataLoading(false);
-  }, [session]);
+  }, [resolveClient, session]);
 
   useEffect(() => {
     if (!session) {
@@ -116,7 +147,17 @@ export default function Home() {
 
     setStatus({ type: "loading", message: "" });
 
-    const { error } = await supabase.auth.signInWithOtp({
+    const { client, error: clientError } = resolveClient();
+    if (clientError || !client) {
+      setStatus({
+        type: "error",
+        message:
+          "Faltan variables de entorno de Supabase. Revisa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+      });
+      return;
+    }
+
+    const { error } = await client.auth.signInWithOtp({
       email: trimmedEmail,
       options: {
         emailRedirectTo: window.location.origin,
@@ -160,7 +201,9 @@ export default function Home() {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    const { client } = resolveClient();
+    if (!client) return;
+    await client.auth.signOut();
   };
 
   return (
