@@ -25,6 +25,7 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
         pendingCount: 0,
         confirmedCount: 0,
       },
+      clients: [],
       services: [],
       employees: [],
       upcomingAppointments: [],
@@ -98,6 +99,14 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
     .eq("id_empresa", employeeData.id_empresa)
     .order("nombre", { ascending: true });
 
+  // Lista de clientes de la empresa.
+  // Ajusta la seleccion si quieres mas campos (direccion, notas, etc).
+  const clientsPromise = supabase
+    .from("clientes")
+    .select("uuid,id_empresa,nombre,telefono")
+    .eq("id_empresa", employeeData.id_empresa)
+    .order("nombre", { ascending: true });
+
   const [
     companyResponse,
     completedResponse,
@@ -106,6 +115,7 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
     confirmedResponse,
     servicesResponse,
     employeesResponse,
+    clientsResponse,
   ] = await Promise.all([
     companyPromise,
     completedPromise,
@@ -114,6 +124,7 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
     confirmedPromise,
     servicesPromise,
     employeesPromise,
+    clientsPromise,
   ]);
 
   if (companyResponse?.error) {
@@ -163,6 +174,11 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
       buildErrorMessage("No pudimos cargar los empleados.", employeesResponse.error)
     );
   }
+  if (clientsResponse?.error) {
+    errors.push(
+      buildErrorMessage("No pudimos cargar los clientes.", clientsResponse.error)
+    );
+  }
 
   const completedAppointments = completedResponse?.data ?? [];
   const totalIncome = completedAppointments.reduce((acc, appointment) => {
@@ -183,6 +199,7 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
       pendingCount: Number.isNaN(pendingCount) ? 0 : pendingCount,
       confirmedCount: Number.isNaN(confirmedCount) ? 0 : confirmedCount,
     },
+    clients: clientsResponse?.data ?? [],
     services: servicesResponse?.data ?? [],
     employees: employeesResponse?.data ?? [],
     upcomingAppointments: upcomingResponse?.data ?? [],

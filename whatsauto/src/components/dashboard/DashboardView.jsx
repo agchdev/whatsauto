@@ -8,7 +8,9 @@ import {
   persistPalette,
   THEME_STORAGE_KEY,
 } from "../../lib/theme";
+import AppointmentsCalendar from "./AppointmentsCalendar";
 import CompanyHeader from "./CompanyHeader";
+import ClientsPanel from "./ClientsPanel";
 import EmployeesPanel from "./EmployeesPanel";
 import Sidebar from "./Sidebar";
 import ServicesPanel from "./ServicesPanel";
@@ -22,6 +24,7 @@ export default function DashboardView({
   dataLoading,
   employee,
   employees,
+  clients,
   summary,
   services,
   upcomingAppointments,
@@ -60,7 +63,9 @@ export default function DashboardView({
   };
 
   const isEmployeesView = activeKey === "empleados";
+  const isClientsView = activeKey === "clientes";
   const isServicesView = activeKey === "servicios";
+  const isAppointmentsView = activeKey === "citas";
 
   return (
     <div className="relative flex w-full">
@@ -99,6 +104,8 @@ export default function DashboardView({
               isLoading={dataLoading}
               onRefresh={onRefreshData}
             />
+          ) : isClientsView ? (
+            <ClientsPanel clients={clients} isLoading={dataLoading} />
           ) : isServicesView ? (
             <ServicesPanel
               canManage={employee.role === "boss"}
@@ -107,6 +114,11 @@ export default function DashboardView({
               isLoading={dataLoading}
               onRefresh={onRefreshData}
               services={services}
+            />
+          ) : isAppointmentsView ? (
+            <AppointmentsCalendar
+              appointments={upcomingAppointments}
+              isLoading={dataLoading}
             />
           ) : (
             <>
