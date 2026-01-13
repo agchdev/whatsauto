@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+import { getSupabaseAdmin } from "../../../lib/supabaseAdmin";
 
 const TOKEN_SELECT =
   "uuid,id_cita,token_hash,expires_at,used_at,citas(estado,tiempo_inicio,tiempo_fin,titulo,descripcion,clientes(nombre,telefono),servicios(nombre,precio))";
@@ -16,8 +16,21 @@ const isExpired = (expiresAt) => {
   return expiration.getTime() < Date.now();
 };
 
+const resolveAdminClient = () => {
+  try {
+    return { client: getSupabaseAdmin(), error: null };
+  } catch (error) {
+    return { client: null, error };
+  }
+};
+
 const fetchConfirmation = async (token) => {
-  const { data, error } = await supabaseAdmin
+  const { client, error: clientError } = resolveAdminClient();
+  if (clientError) {
+    return { error: clientError, data: null };
+  }
+
+  const { data, error } = await client
     .from("citas_confirmaciones")
     .select(TOKEN_SELECT)
     .eq("token_hash", token)
@@ -42,7 +55,7 @@ export async function GET(request) {
   if (error) {
     return buildResponse("error", {
       message: "No pudimos validar la cita.",
-      details: error.message,
+      details: error?.message,
     });
   }
 
@@ -80,7 +93,7 @@ export async function POST(request) {
   if (error) {
     return buildResponse("error", {
       message: "No pudimos validar la cita.",
-      details: error.message,
+      details: error?.message,
     });
   }
 
@@ -107,8 +120,16 @@ export async function POST(request) {
     });
   }
 
+  const { client, error: clientError } = resolveAdminClient();
+  if (clientError) {
+    return buildResponse("error", {
+      message: "No pudimos actualizar la cita.",
+      details: clientError?.message,
+    });
+  }
+
   if (currentState !== targetState) {
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await client
       .from("citas")
       .update({ estado: targetState, updated_at: new Date().toISOString() })
       .eq("uuid", data.id_cita);
@@ -121,7 +142,7 @@ export async function POST(request) {
     }
   }
 
-  const { error: confirmationError } = await supabaseAdmin
+  const { error: confirmationError } = await client
     .from("citas_confirmaciones")
     .update({ used_at: new Date().toISOString() })
     .eq("uuid", data.uuid)
