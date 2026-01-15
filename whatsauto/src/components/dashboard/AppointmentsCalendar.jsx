@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { formatDateTime } from "../../lib/formatters";
 import { getSupabaseClient } from "../../lib/supabaseClient";
 
 const WEEKDAYS = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
@@ -18,9 +19,21 @@ const STATUS_STYLES = {
     "border-[color:var(--supabase-green)] bg-[color:rgb(var(--supabase-green-rgb)/0.15)] text-[color:var(--supabase-green)]",
   pendiente:
     "border-[color:var(--border)] bg-[color:var(--surface-strong)] text-[color:var(--muted-strong)]",
+  rechazada:
+    "border-rose-400/40 bg-rose-500/10 text-rose-200",
   realizada:
     "border-[color:var(--border)] bg-[color:var(--surface-strong)] text-[color:var(--muted)]",
+  cancelada:
+    "border-rose-400/40 bg-rose-500/10 text-rose-200",
 };
+
+const STATUS_OPTIONS = [
+  { value: "pendiente", label: "Pendiente" },
+  { value: "confirmada", label: "Confirmada" },
+  { value: "rechazada", label: "Rechazada" },
+  { value: "realizada", label: "Realizada" },
+  { value: "cancelada", label: "Cancelada" },
+];
 
 const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
 
@@ -125,6 +138,11 @@ export default function AppointmentsCalendar({
   const [isSaving, setIsSaving] = useState(false);
   const [createdLink, setCreatedLink] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState(null);
+  const [editStatusValue, setEditStatusValue] = useState("pendiente");
+  const [editStatus, setEditStatus] = useState({ type: "idle", message: "" });
+  const [isEditSaving, setIsEditSaving] = useState(false);
   const today = useMemo(() => new Date(), []);
   const normalizedAppointments = useMemo(
     () =>
@@ -282,6 +300,29 @@ export default function AppointmentsCalendar({
     setCopyStatus("");
   };
 
+  const openEditModal = (appointment) => {
+    if (!appointment?.uuid) return;
+    const nextStatus =
+      typeof appointment?.estado === "string"
+        ? appointment.estado.toLowerCase()
+        : "pendiente";
+    setEditingAppointment(appointment);
+    setEditStatusValue(
+      STATUS_OPTIONS.some((option) => option.value === nextStatus)
+        ? nextStatus
+        : "pendiente"
+    );
+    setEditStatus({ type: "idle", message: "" });
+    setIsEditOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditOpen(false);
+    setEditingAppointment(null);
+    setEditStatusValue("pendiente");
+    setEditStatus({ type: "idle", message: "" });
+  };
+
   const handleChange = (field) => (event) => {
     setFormState((prev) => ({ ...prev, [field]: event.target.value }));
   };
@@ -425,6 +466,64 @@ export default function AppointmentsCalendar({
     onRefresh?.();
   };
 
+  const handleEditSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!editingAppointment?.uuid) {
+      setEditStatus({
+        type: "error",
+        message: "Selecciona una cita para editar.",
+      });
+      return;
+    }
+
+    if (!STATUS_OPTIONS.some((option) => option.value === editStatusValue)) {
+      setEditStatus({
+        type: "error",
+        message: "Selecciona un estado valido.",
+      });
+      return;
+    }
+
+    let supabase;
+    try {
+      supabase = getSupabaseClient();
+    } catch (error) {
+      setEditStatus({
+        type: "error",
+        message: buildErrorMessage(
+          "Faltan variables de entorno de Supabase.",
+          error
+        ),
+      });
+      return;
+    }
+
+    setIsEditSaving(true);
+    setEditStatus({ type: "loading", message: "Actualizando estado..." });
+
+    const { error: updateError } = await supabase
+      .from("citas")
+      .update({ estado: editStatusValue, updated_at: new Date().toISOString() })
+      .eq("uuid", editingAppointment.uuid);
+
+    if (updateError) {
+      setEditStatus({
+        type: "error",
+        message: buildErrorMessage(
+          "No pudimos actualizar el estado.",
+          updateError
+        ),
+      });
+      setIsEditSaving(false);
+      return;
+    }
+
+    setIsEditSaving(false);
+    closeEditModal();
+    onRefresh?.();
+  };
+
   return (
     <section className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_24px_70px_-60px_rgba(0,0,0,0.9)]">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -531,16 +630,19 @@ export default function AppointmentsCalendar({
                       const title = `${timeLabel} | ${label} | ${clientName} | ${serviceName} | ${status}`;
 
                       return (
-                        <div
+                        <button
                           key={appointment.uuid}
-                          className={`flex min-w-0 items-center gap-2 rounded-lg border px-2 py-1 text-[10px] ${getStatusStyle(
+                          className={`flex min-w-0 items-center gap-2 rounded-lg border px-2 py-1 text-[10px] text-left transition hover:brightness-110 ${getStatusStyle(
                             appointment.estado
                           )}`}
                           title={title}
+                          aria-label={`Editar cita: ${title}`}
+                          onClick={() => openEditModal(appointment)}
+                          type="button"
                         >
                           <span className="font-semibold">{timeLabel}</span>
                           <span className="truncate">{label}</span>
-                        </div>
+                        </button>
                       );
                     })}
                     {extraCount > 0 && (
@@ -735,6 +837,93 @@ export default function AppointmentsCalendar({
                   </span>
                 )}
               </div>
+            </div>
+          )}
+        </form>
+      </ModalShell>
+
+      <ModalShell isOpen={isEditOpen} onClose={closeEditModal} size="max-w-xl">
+        <form onSubmit={handleEditSubmit}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--muted)]">
+                Editar estado
+              </p>
+              <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                Actualiza el estado de la cita seleccionada.
+              </p>
+            </div>
+            <button
+              className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+              onClick={closeEditModal}
+              type="button"
+            >
+              Cerrar
+            </button>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--muted-strong)]">
+            <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+              Detalles
+            </p>
+            <p className="mt-2 font-semibold text-[color:var(--foreground)]">
+              {getAppointmentLabel(editingAppointment)}
+            </p>
+            <p className="text-xs text-[color:var(--muted)]">
+              {editingAppointment?.clientes?.nombre || "Sin cliente"} ·{" "}
+              {editingAppointment?.servicios?.nombre || "Sin servicio"}
+            </p>
+            <p className="mt-2 text-xs text-[color:var(--muted)]">
+              Inicio: {formatDateTime(editingAppointment?.tiempo_inicio)}
+            </p>
+            <p className="text-xs text-[color:var(--muted)]">
+              Fin: {formatDateTime(editingAppointment?.tiempo_fin)}
+            </p>
+          </div>
+
+          <label className="mt-4 block text-sm text-[color:var(--foreground)]">
+            Estado
+            <select
+              className="mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.3)]"
+              onChange={(event) => setEditStatusValue(event.target.value)}
+              value={editStatusValue}
+            >
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              className="rounded-2xl bg-[linear-gradient(135deg,var(--supabase-green),var(--supabase-green-dark))] px-5 py-3 text-sm font-semibold text-[#04140b] shadow-[0_18px_40px_-24px_rgba(31,157,107,0.6)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={isEditSaving}
+              type="submit"
+            >
+              Guardar estado
+            </button>
+            <button
+              className="rounded-2xl border border-[color:var(--border)] px-5 py-3 text-sm font-semibold text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+              onClick={closeEditModal}
+              type="button"
+            >
+              Cancelar
+            </button>
+          </div>
+
+          {editStatus.message && (
+            <div
+              className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
+                editStatus.type === "error"
+                  ? "border-rose-300/30 bg-rose-500/10 text-rose-200"
+                  : editStatus.type === "success"
+                  ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-200"
+                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--muted)]"
+              }`}
+            >
+              {editStatus.message}
             </div>
           )}
         </form>

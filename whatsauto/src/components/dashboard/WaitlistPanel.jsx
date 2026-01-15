@@ -20,6 +20,11 @@ const STATE_LABELS = {
   cancelada: "Cliente original se quito",
   realizada: "Cita realizada",
 };
+const ASSIGN_BUTTON_STYLES = {
+  available:
+    "border-[color:var(--supabase-green)] bg-[color:rgb(var(--supabase-green-rgb)/0.18)] text-[color:var(--supabase-green)] hover:bg-[color:rgb(var(--supabase-green-rgb)/0.28)]",
+  unavailable: "border-rose-400/40 bg-rose-500/10 text-rose-200",
+};
 
 const buildErrorMessage = (fallback, error) => {
   const details = error?.message || error?.details || "";
@@ -67,6 +72,11 @@ const sortByCreated = (left, right) => {
 
 const normalizeStatus = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : "";
+
+const getAssignButtonClass = (canAssign) =>
+  `rounded-full border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] transition ${
+    canAssign ? ASSIGN_BUTTON_STYLES.available : ASSIGN_BUTTON_STYLES.unavailable
+  }`;
 
 const createToken = () => {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -514,26 +524,149 @@ export default function WaitlistPanel({
         </div>
       )}
 
-      <div className="mt-6 overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-sm">
+      <div className="mt-6">
+        <div className="space-y-3 md:hidden">
+          {isLoading ? (
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+              Cargando lista de espera...
+            </div>
+          ) : hasWaitlist ? (
+            orderedWaitlist.map((entry) => {
+              const appointment = entry?.citas;
+              const waitClient = entry?.clientes;
+              const appointmentTitle = formatAppointmentTitle(appointment);
+              const appointmentTime = formatDateTime(appointment?.tiempo_inicio);
+              const employeeName =
+                appointment?.empleados?.nombre || "Sin empleado";
+              const rawStatus =
+                normalizeStatus(appointment?.estado) || "pendiente";
+              const originalLabel =
+                STATE_LABELS[rawStatus] || "Estado desconocido";
+              const canAssign = AVAILABLE_STATES.has(rawStatus);
+              const assignTitle = canAssign
+                ? "Disponible para pasar a cita"
+                : "La cita original aun no esta libre";
+
+              return (
+                <div
+                  key={entry.uuid}
+                  className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                        Cliente
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[color:var(--foreground)]">
+                        {waitClient?.nombre || "Sin cliente"}
+                      </p>
+                      <p className="text-xs text-[color:var(--muted)]">
+                        {waitClient?.telefono || "Sin telefono"}
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)]">
+                      {formatDateTime(entry?.created_at)}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                        Cita
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[color:var(--foreground)]">
+                        {appointmentTitle}
+                      </p>
+                      <p className="text-xs text-[color:var(--muted)]">
+                        {appointmentTime}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                        Empleado
+                      </p>
+                      <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                        {employeeName}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                        Cliente original
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[color:var(--foreground)]">
+                        {originalLabel}
+                      </p>
+                      <p className="text-xs text-[color:var(--muted)]">
+                        Estado cita: {rawStatus}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      className={`${getAssignButtonClass(
+                        canAssign
+                      )} disabled:cursor-not-allowed disabled:opacity-80`}
+                      disabled={!canAssign || assigningId === entry.uuid}
+                      onClick={() => handleAssign(entry)}
+                      title={assignTitle}
+                      type="button"
+                    >
+                      {assigningId === entry.uuid ? "Asignando..." : "Pasar a cita"}
+                    </button>
+                    <button
+                      className="rounded-full border border-[color:var(--border)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+                      onClick={() => openEdit(entry)}
+                      type="button"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      className="rounded-full border border-rose-400/40 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-rose-200 transition hover:border-rose-400/70"
+                      onClick={() => handleDelete(entry)}
+                      type="button"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+              No hay clientes en lista de espera.
+            </div>
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full min-w-[980px] table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[180px]" />
+              <col className="w-[280px]" />
+              <col className="w-[140px]" />
+              <col className="w-[220px]" />
+              <col className="w-[150px]" />
+              <col className="w-[220px]" />
+            </colgroup>
           <thead className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
             <tr>
-              <th className="pb-3" scope="col">
+              <th className="px-2 pb-3" scope="col">
                 Cliente
               </th>
-              <th className="pb-3" scope="col">
+              <th className="px-2 pb-3" scope="col">
                 Cita
               </th>
-              <th className="pb-3" scope="col">
+              <th className="px-2 pb-3" scope="col">
                 Empleado
               </th>
-              <th className="pb-3" scope="col">
+              <th className="px-2 pb-3" scope="col">
                 Cliente original
               </th>
-              <th className="pb-3" scope="col">
+              <th className="px-2 pb-3" scope="col">
                 Creada
               </th>
-              <th className="pb-3 text-right" scope="col">
+              <th className="px-2 pb-3 text-right" scope="col">
                 Acciones
               </th>
             </tr>
@@ -541,7 +674,7 @@ export default function WaitlistPanel({
           <tbody>
             {isLoading ? (
               <tr>
-                <td className="py-4 text-[color:var(--muted)]" colSpan={6}>
+                <td className="px-2 py-4 text-[color:var(--muted)]" colSpan={6}>
                   Cargando lista de espera...
                 </td>
               </tr>
@@ -559,61 +692,76 @@ export default function WaitlistPanel({
                 return (
                   <tr
                     key={entry.uuid}
-                    className="border-t border-[color:var(--border)]"
+                    className="border-t border-[color:var(--border)] align-top transition hover:bg-[color:var(--surface-muted)]"
                   >
-                    <td className="py-4">
-                      <div className="font-semibold text-[color:var(--foreground)]">
-                        {waitClient?.nombre || "Sin cliente"}
-                      </div>
-                      <div className="text-xs text-[color:var(--muted)]">
-                        {waitClient?.telefono || "Sin telefono"}
-                      </div>
-                    </td>
-                    <td className="py-4">
-                      <div className="font-semibold text-[color:var(--foreground)]">
-                        {appointmentTitle}
-                      </div>
-                      <div className="text-xs text-[color:var(--muted)]">
-                        {appointmentTime}
+                    <td className="px-2 py-4">
+                      <div className="min-w-0">
+                        <div
+                          className="truncate font-semibold text-[color:var(--foreground)]"
+                          title={waitClient?.nombre || ""}
+                        >
+                          {waitClient?.nombre || "Sin cliente"}
+                        </div>
+                        <div className="text-xs text-[color:var(--muted)]">
+                          {waitClient?.telefono || "Sin telefono"}
+                        </div>
                       </div>
                     </td>
-                    <td className="py-4 text-[color:var(--muted-strong)]">
+                    <td className="px-2 py-4">
+                      <div className="min-w-0">
+                        <div
+                          className="truncate font-semibold text-[color:var(--foreground)]"
+                          title={appointmentTitle}
+                        >
+                          {appointmentTitle}
+                        </div>
+                        <div className="text-xs text-[color:var(--muted)]">
+                          {appointmentTime}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-2 py-4 text-[color:var(--muted-strong)]">
                       {employeeName}
                     </td>
-                    <td className="py-4 text-[color:var(--muted-strong)]">
-                      <div className="font-semibold text-[color:var(--foreground)]">
-                        {originalLabel}
-                      </div>
-                      <div className="text-xs text-[color:var(--muted)]">
-                        Estado cita: {rawStatus}
+                    <td className="px-2 py-4 text-[color:var(--muted-strong)]">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-[color:var(--foreground)]">
+                          {originalLabel}
+                        </div>
+                        <div className="text-xs text-[color:var(--muted)]">
+                          Estado cita: {rawStatus}
+                        </div>
                       </div>
                     </td>
-                    <td className="py-4 text-[color:var(--muted-strong)]">
+                    <td className="px-2 py-4 text-[color:var(--muted-strong)] whitespace-nowrap">
                       {formatDateTime(entry?.created_at)}
                     </td>
-                    <td className="py-4">
-                      <div className="flex justify-end gap-2">
+                    <td className="px-2 py-4">
+                      <div className="flex flex-wrap justify-end gap-2">
                         <button
-                          className={`rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition ${
+                          className={`${getAssignButtonClass(
                             canAssign
-                              ? "border-[color:var(--supabase-green)] text-[color:var(--supabase-green)] hover:border-[color:var(--supabase-green)]"
-                              : "border-[color:var(--border)] text-[color:var(--muted)]"
-                          }`}
+                          )} disabled:cursor-not-allowed disabled:opacity-80`}
                           disabled={!canAssign || assigningId === entry.uuid}
                           onClick={() => handleAssign(entry)}
+                          title={
+                            canAssign
+                              ? "Disponible para pasar a cita"
+                              : "La cita original aun no esta libre"
+                          }
                           type="button"
                         >
                           {assigningId === entry.uuid ? "Asignando..." : "Pasar a cita"}
                         </button>
                         <button
-                          className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+                          className="rounded-full border border-[color:var(--border)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
                           onClick={() => openEdit(entry)}
                           type="button"
                         >
                           Editar
                         </button>
                         <button
-                          className="rounded-full border border-rose-400/40 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-rose-200 transition hover:border-rose-400/70"
+                          className="rounded-full border border-rose-400/40 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-rose-200 transition hover:border-rose-400/70"
                           onClick={() => handleDelete(entry)}
                           type="button"
                         >
@@ -626,13 +774,14 @@ export default function WaitlistPanel({
               })
             ) : (
               <tr>
-                <td className="py-4 text-[color:var(--muted)]" colSpan={6}>
+                <td className="px-2 py-4 text-[color:var(--muted)]" colSpan={6}>
                   No hay clientes en lista de espera.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <ModalShell isOpen={modalOpen} onClose={closeModal}>
