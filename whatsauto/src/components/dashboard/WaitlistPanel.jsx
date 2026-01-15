@@ -25,6 +25,7 @@ const ASSIGN_BUTTON_STYLES = {
     "border-[color:var(--supabase-green)] bg-[color:rgb(var(--supabase-green-rgb)/0.18)] text-[color:var(--supabase-green)] hover:bg-[color:rgb(var(--supabase-green-rgb)/0.28)]",
   unavailable: "border-rose-400/40 bg-rose-500/10 text-rose-200",
 };
+const WAITLIST_PAGE_SIZE = 6;
 
 const buildErrorMessage = (fallback, error) => {
   const details = error?.message || error?.details || "";
@@ -114,6 +115,7 @@ export default function WaitlistPanel({
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [generatedLink, setGeneratedLink] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
+  const [waitlistPage, setWaitlistPage] = useState(1);
 
   useEffect(() => {
     setWaitlistEntries(waitlist);
@@ -123,6 +125,28 @@ export default function WaitlistPanel({
     () => [...waitlistEntries].sort(sortByCreated),
     [waitlistEntries]
   );
+  const waitlistTotalPages = Math.max(
+    1,
+    Math.ceil(orderedWaitlist.length / WAITLIST_PAGE_SIZE)
+  );
+  const paginatedWaitlist = useMemo(() => {
+    const start = (waitlistPage - 1) * WAITLIST_PAGE_SIZE;
+    return orderedWaitlist.slice(start, start + WAITLIST_PAGE_SIZE);
+  }, [orderedWaitlist, waitlistPage]);
+  const waitlistRangeStart = orderedWaitlist.length
+    ? (waitlistPage - 1) * WAITLIST_PAGE_SIZE + 1
+    : 0;
+  const waitlistRangeEnd = Math.min(
+    waitlistPage * WAITLIST_PAGE_SIZE,
+    orderedWaitlist.length
+  );
+  const showWaitlistPagination = waitlistTotalPages > 1;
+
+  useEffect(() => {
+    if (waitlistPage > waitlistTotalPages) {
+      setWaitlistPage(waitlistTotalPages);
+    }
+  }, [waitlistPage, waitlistTotalPages]);
 
   const resolveSupabase = () => {
     try {
@@ -531,7 +555,7 @@ export default function WaitlistPanel({
               Cargando lista de espera...
             </div>
           ) : hasWaitlist ? (
-            orderedWaitlist.map((entry) => {
+            paginatedWaitlist.map((entry) => {
               const appointment = entry?.citas;
               const waitClient = entry?.clientes;
               const appointmentTitle = formatAppointmentTitle(appointment);
@@ -679,7 +703,7 @@ export default function WaitlistPanel({
                 </td>
               </tr>
             ) : hasWaitlist ? (
-              orderedWaitlist.map((entry) => {
+              paginatedWaitlist.map((entry) => {
                 const appointment = entry?.citas;
                 const waitClient = entry?.clientes;
                 const appointmentTitle = formatAppointmentTitle(appointment);
@@ -783,6 +807,38 @@ export default function WaitlistPanel({
         </table>
         </div>
       </div>
+
+      {showWaitlistPagination && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[color:var(--muted)]">
+          <span>
+            Mostrando {waitlistRangeStart}-{waitlistRangeEnd} de{" "}
+            {orderedWaitlist.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              className="rounded-full border border-[color:var(--border)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={waitlistPage === 1}
+              onClick={() => setWaitlistPage((prev) => Math.max(1, prev - 1))}
+              type="button"
+            >
+              Anterior
+            </button>
+            <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)]">
+              {waitlistPage} / {waitlistTotalPages}
+            </span>
+            <button
+              className="rounded-full border border-[color:var(--border)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={waitlistPage === waitlistTotalPages}
+              onClick={() =>
+                setWaitlistPage((prev) => Math.min(waitlistTotalPages, prev + 1))
+              }
+              type="button"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
 
       <ModalShell isOpen={modalOpen} onClose={closeModal}>
         <form onSubmit={handleSubmit}>

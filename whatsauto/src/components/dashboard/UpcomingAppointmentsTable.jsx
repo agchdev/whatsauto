@@ -1,7 +1,25 @@
+import { useEffect, useMemo, useState } from "react";
 import { formatDateTime } from "../../lib/formatters";
 
+const ITEMS_PER_PAGE = 8;
+
 export default function UpcomingAppointmentsTable({ appointments, isLoading }) {
+  const [page, setPage] = useState(1);
   const hasAppointments = appointments.length > 0;
+  const totalPages = Math.max(1, Math.ceil(appointments.length / ITEMS_PER_PAGE));
+  const paginatedAppointments = useMemo(() => {
+    const start = (page - 1) * ITEMS_PER_PAGE;
+    return appointments.slice(start, start + ITEMS_PER_PAGE);
+  }, [appointments, page]);
+  const rangeStart = appointments.length ? (page - 1) * ITEMS_PER_PAGE + 1 : 0;
+  const rangeEnd = Math.min(page * ITEMS_PER_PAGE, appointments.length);
+  const showPagination = totalPages > 1;
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   return (
     <section className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_24px_70px_-60px_rgba(0,0,0,0.9)]">
@@ -48,7 +66,7 @@ export default function UpcomingAppointmentsTable({ appointments, isLoading }) {
                 </td>
               </tr>
             ) : hasAppointments ? (
-              appointments.map((appointment) => (
+              paginatedAppointments.map((appointment) => (
                 <tr
                   key={appointment.uuid}
                   className="border-t border-[color:var(--border)]"
@@ -85,6 +103,35 @@ export default function UpcomingAppointmentsTable({ appointments, isLoading }) {
           </tbody>
         </table>
       </div>
+
+      {showPagination && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[color:var(--muted)]">
+          <span>
+            Mostrando {rangeStart}-{rangeEnd} de {appointments.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              className="rounded-full border border-[color:var(--border)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={page === 1}
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              type="button"
+            >
+              Anterior
+            </button>
+            <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)]">
+              {page} / {totalPages}
+            </span>
+            <button
+              className="rounded-full border border-[color:var(--border)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={page === totalPages}
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              type="button"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

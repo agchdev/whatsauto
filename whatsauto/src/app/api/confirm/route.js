@@ -167,6 +167,38 @@ export async function POST(request) {
     }
   }
 
+  if (tipo === "eliminar" && action === "confirm") {
+    if (!data.id_cita) {
+      return buildResponse("error", {
+        message: "No pudimos eliminar la cita.",
+      });
+    }
+
+    const { error: waitlistError } = await client
+      .from("esperas")
+      .delete()
+      .eq("id_cita", data.id_cita);
+
+    if (waitlistError) {
+      return buildResponse("error", {
+        message: "No pudimos eliminar la cita.",
+        details: waitlistError.message,
+      });
+    }
+
+    const { error: deleteError } = await client
+      .from("citas")
+      .delete()
+      .eq("uuid", data.id_cita);
+
+    if (deleteError) {
+      return buildResponse("error", {
+        message: "No pudimos eliminar la cita.",
+        details: deleteError.message,
+      });
+    }
+  }
+
   const { error: confirmationError } = await client
     .from("confirmaciones")
     .update({ used_at: new Date().toISOString() })

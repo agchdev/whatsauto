@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatDateTime, formatDuration, formatPrice } from "../../lib/formatters";
 import { getSupabaseClient } from "../../lib/supabaseClient";
+
+const CLIENTS_PAGE_SIZE = 8;
 
 const buildErrorMessage = (fallback, error) => {
   const details = error?.message || error?.details || "";
@@ -45,6 +47,23 @@ export default function ClientsPanel({ clients = [], isLoading, onRefresh }) {
   const [editStatus, setEditStatus] = useState({ type: "idle", message: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
+  const [clientPage, setClientPage] = useState(1);
+  const totalClientPages = Math.max(
+    1,
+    Math.ceil(clientList.length / CLIENTS_PAGE_SIZE)
+  );
+  const visibleClients = useMemo(() => {
+    const start = (clientPage - 1) * CLIENTS_PAGE_SIZE;
+    return clientList.slice(start, start + CLIENTS_PAGE_SIZE);
+  }, [clientList, clientPage]);
+  const clientRangeStart = clientList.length
+    ? (clientPage - 1) * CLIENTS_PAGE_SIZE + 1
+    : 0;
+  const clientRangeEnd = Math.min(
+    clientPage * CLIENTS_PAGE_SIZE,
+    clientList.length
+  );
+  const showClientPagination = totalClientPages > 1;
 
   useEffect(() => {
     setClientList(clients);
@@ -55,6 +74,12 @@ export default function ClientsPanel({ clients = [], isLoading, onRefresh }) {
       }
     }
   }, [clients, selectedClient]);
+
+  useEffect(() => {
+    if (clientPage > totalClientPages) {
+      setClientPage(totalClientPages);
+    }
+  }, [clientPage, totalClientPages]);
 
   const handleSelectClient = async (client) => {
     setSelectedClient(client);
@@ -227,7 +252,7 @@ export default function ClientsPanel({ clients = [], isLoading, onRefresh }) {
               </p>
             ) : clientList.length ? (
               <ul className="space-y-2">
-                {clientList.map((client) => {
+                {visibleClients.map((client) => {
                   const isActive = selectedClient?.uuid === client.uuid;
                   return (
                     <li key={client.uuid}>
@@ -262,6 +287,37 @@ export default function ClientsPanel({ clients = [], isLoading, onRefresh }) {
               </p>
             )}
           </div>
+          {showClientPagination && !isLoading && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[color:var(--muted)]">
+              <span>
+                Mostrando {clientRangeStart}-{clientRangeEnd} de{" "}
+                {clientList.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  className="rounded-full border border-[color:var(--border)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={clientPage === 1}
+                  onClick={() => setClientPage((prev) => Math.max(1, prev - 1))}
+                  type="button"
+                >
+                  Anterior
+                </button>
+                <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)]">
+                  {clientPage} / {totalClientPages}
+                </span>
+                <button
+                  className="rounded-full border border-[color:var(--border)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={clientPage === totalClientPages}
+                  onClick={() =>
+                    setClientPage((prev) => Math.min(totalClientPages, prev + 1))
+                  }
+                  type="button"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">

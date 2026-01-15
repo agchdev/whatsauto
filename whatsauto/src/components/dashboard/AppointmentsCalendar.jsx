@@ -13,6 +13,11 @@ const TIME_FORMATTER = new Intl.DateTimeFormat("es-ES", {
   hour: "2-digit",
   minute: "2-digit",
 });
+const DAY_FORMATTER = new Intl.DateTimeFormat("es-ES", {
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
+});
 
 const STATUS_STYLES = {
   confirmada:
@@ -143,6 +148,9 @@ export default function AppointmentsCalendar({
   const [editStatusValue, setEditStatusValue] = useState("pendiente");
   const [editStatus, setEditStatus] = useState({ type: "idle", message: "" });
   const [isEditSaving, setIsEditSaving] = useState(false);
+  const [isDayOpen, setIsDayOpen] = useState(false);
+  const [selectedDayKey, setSelectedDayKey] = useState("");
+  const [selectedDayDate, setSelectedDayDate] = useState(null);
   const today = useMemo(() => new Date(), []);
   const normalizedAppointments = useMemo(
     () =>
@@ -250,6 +258,14 @@ export default function AppointmentsCalendar({
   const canGoPrev = viewMonth.getTime() > minMonth.getTime();
   const canGoNext = viewMonth.getTime() < maxMonth.getTime();
   const hasAppointments = normalizedAppointments.length > 0;
+  const selectedDayAppointments = useMemo(() => {
+    if (!selectedDayKey) return [];
+    return appointmentsByDay[selectedDayKey] || [];
+  }, [appointmentsByDay, selectedDayKey]);
+  const selectedDayLabel = useMemo(() => {
+    if (!selectedDayDate) return "";
+    return DAY_FORMATTER.format(selectedDayDate);
+  }, [selectedDayDate]);
   const employeeOptions = useMemo(() => {
     if (!currentEmployee || currentEmployee.role === "boss") return employees;
     const match = employees.find((employee) => employee.uuid === currentEmployee.id);
@@ -321,6 +337,31 @@ export default function AppointmentsCalendar({
     setEditingAppointment(null);
     setEditStatusValue("pendiente");
     setEditStatus({ type: "idle", message: "" });
+  };
+
+  const openDayModal = (day) => {
+    if (!day?.dateKey) return;
+    setSelectedDayKey(day.dateKey);
+    setSelectedDayDate(day.date);
+    setIsDayOpen(true);
+  };
+
+  const closeDayModal = () => {
+    setIsDayOpen(false);
+    setSelectedDayKey("");
+    setSelectedDayDate(null);
+  };
+
+  const handleDayKeyDown = (event, day) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openDayModal(day);
+    }
+  };
+
+  const handleDayAppointmentClick = (appointment) => {
+    closeDayModal();
+    openEditModal(appointment);
   };
 
   const handleChange = (field) => (event) => {
@@ -595,6 +636,7 @@ export default function AppointmentsCalendar({
             {calendarDays.map((day) => {
               const visibleAppointments = day.appointments.slice(0, 2);
               const extraCount = day.appointments.length - visibleAppointments.length;
+              const canOpenDay = day.isCurrentMonth && day.appointments.length > 0;
               const dayTextColor = day.isCurrentMonth
                 ? "text-[color:var(--foreground)]"
                 : "text-[color:var(--muted)]";
@@ -608,7 +650,16 @@ export default function AppointmentsCalendar({
               return (
                 <div
                   key={day.dateKey}
-                  className={`min-h-[96px] px-2 py-2 text-xs ${dayBackground} ${dayTextColor}`}
+                  className={`min-h-[96px] px-2 py-2 text-xs ${dayBackground} ${dayTextColor} ${
+                    canOpenDay ? "cursor-pointer transition hover:bg-[color:var(--surface-strong)]" : ""
+                  }`}
+                  role={canOpenDay ? "button" : undefined}
+                  tabIndex={canOpenDay ? 0 : undefined}
+                  onClick={canOpenDay ? () => openDayModal(day) : undefined}
+                  onKeyDown={canOpenDay ? (event) => handleDayKeyDown(event, day) : undefined}
+                  aria-label={
+                    canOpenDay ? `Ver citas del ${formatLocalDate(day.date)}` : undefined
+                  }
                 >
                   <div className="flex items-center justify-between">
                     <span className={`text-[11px] font-semibold ${dayNumberColor}`}>
@@ -630,19 +681,16 @@ export default function AppointmentsCalendar({
                       const title = `${timeLabel} | ${label} | ${clientName} | ${serviceName} | ${status}`;
 
                       return (
-                        <button
+                        <div
                           key={appointment.uuid}
-                          className={`flex min-w-0 items-center gap-2 rounded-lg border px-2 py-1 text-[10px] text-left transition hover:brightness-110 ${getStatusStyle(
+                          className={`flex min-w-0 items-center gap-2 rounded-lg border px-2 py-1 text-[10px] ${getStatusStyle(
                             appointment.estado
                           )}`}
                           title={title}
-                          aria-label={`Editar cita: ${title}`}
-                          onClick={() => openEditModal(appointment)}
-                          type="button"
                         >
                           <span className="font-semibold">{timeLabel}</span>
                           <span className="truncate">{label}</span>
-                        </button>
+                        </div>
                       );
                     })}
                     {extraCount > 0 && (
@@ -657,6 +705,76 @@ export default function AppointmentsCalendar({
           </div>
         )}
       </div>
+
+      <ModalShell isOpen={isDayOpen} onClose={closeDayModal} size="max-w-3xl">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--muted)]">
+              Citas del dia
+            </p>
+            <p className="mt-2 text-lg font-semibold text-[color:var(--foreground)]">
+              {selectedDayLabel || "--"}
+            </p>
+            <p className="mt-1 text-xs text-[color:var(--muted)]">
+              {selectedDayAppointments.length} citas
+            </p>
+          </div>
+          <button
+            className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+            onClick={closeDayModal}
+            type="button"
+          >
+            Cerrar
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {selectedDayAppointments.length ? (
+            selectedDayAppointments.map((appointment) => {
+              const timeLabel = TIME_FORMATTER.format(appointment.start);
+              const endTime = new Date(appointment?.tiempo_fin);
+              const endLabel = Number.isNaN(endTime.getTime())
+                ? "--"
+                : TIME_FORMATTER.format(endTime);
+              const label = getAppointmentLabel(appointment);
+              const clientName =
+                appointment?.clientes?.nombre || "Sin cliente";
+              const serviceName =
+                appointment?.servicios?.nombre || "Sin servicio";
+              const employeeName =
+                appointment?.empleados?.nombre || "Sin empleado";
+              const status = appointment?.estado || "pendiente";
+
+              return (
+                <button
+                  key={appointment.uuid}
+                  className={`w-full rounded-2xl border px-4 py-3 text-left text-sm transition hover:brightness-110 ${getStatusStyle(
+                    status
+                  )}`}
+                  onClick={() => handleDayAppointmentClick(appointment)}
+                  type="button"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-semibold">
+                      {timeLabel} - {endLabel}
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.2em]">
+                      {status}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-[color:var(--muted-strong)]">
+                    {label} · {clientName} · {serviceName} · {employeeName}
+                  </div>
+                </button>
+              );
+            })
+          ) : (
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+              No hay citas para este dia.
+            </div>
+          )}
+        </div>
+      </ModalShell>
 
       <ModalShell isOpen={isModalOpen} onClose={closeModal} size="max-w-3xl">
         <form onSubmit={handleCreateAppointment}>
