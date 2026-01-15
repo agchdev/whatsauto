@@ -3,9 +3,10 @@ import ConfirmationPage from "../../../../components/confirmations/ConfirmationP
 const normalizeSegment = (value) =>
   typeof value === "string" ? value.trim() : "";
 
-export default function ConfirmationByTypePage({ params }) {
-  const tipo = normalizeSegment(params?.tipo);
-  const token = normalizeSegment(params?.token);
+export default async function ConfirmationByTypePage({ params }) {
+  const resolvedParams = await params;
+  const tipo = normalizeSegment(resolvedParams?.tipo);
+  const token = normalizeSegment(resolvedParams?.token);
 
   return <ConfirmationPage token={token} tipo={tipo} />;
 }

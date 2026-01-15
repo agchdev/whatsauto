@@ -3,6 +3,7 @@ export const NAV_ITEMS = [
   { label: "Empleados", key: "empleados" },
   { label: "Servicios", key: "servicios" },
   { label: "Citas", key: "citas" },
+  { label: "Lista de espera", key: "esperas" },
   { label: "Clientes", key: "clientes" },
 ];
 

@@ -27,6 +27,7 @@ export default function Home() {
   const [clients, setClients] = useState([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [confirmations, setConfirmations] = useState([]);
+  const [waitlist, setWaitlist] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState("");
   const mountedRef = useRef(true);
@@ -100,6 +101,7 @@ export default function Home() {
     const result = await fetchDashboardData({
       supabase: client,
       userId: session.user.id,
+      accessToken: session.access_token,
     });
 
     if (!mountedRef.current) return;
@@ -112,6 +114,7 @@ export default function Home() {
     setClients(result.clients);
     setUpcomingAppointments(result.upcomingAppointments);
     setConfirmations(result.confirmations);
+    setWaitlist(result.waitlist);
     setDataError(result.error);
     setDataLoading(false);
   }, [resolveClient, session]);
@@ -131,6 +134,7 @@ export default function Home() {
       setClients([]);
       setUpcomingAppointments([]);
       setConfirmations([]);
+      setWaitlist([]);
       setDataLoading(false);
       setDataError("");
       return;
@@ -233,6 +237,7 @@ export default function Home() {
             employees={employees}
             clients={clients}
             confirmations={confirmations}
+            waitlist={waitlist}
             onSignOut={handleSignOut}
             onRefreshData={refreshDashboardData}
             summary={summary}

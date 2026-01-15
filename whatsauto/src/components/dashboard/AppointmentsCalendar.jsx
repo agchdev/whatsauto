@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getSupabaseClient } from "../../lib/supabaseClient";
 
 const WEEKDAYS = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 const MONTH_FORMATTER = new Intl.DateTimeFormat("es-ES", {
@@ -49,10 +50,81 @@ const getAppointmentLabel = (appointment) =>
   appointment?.clientes?.nombre ||
   "Cita";
 
+const ModalShell = ({ isOpen, onClose, children, size = "max-w-2xl" }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 py-10"
+      onClick={onClose}
+    >
+      <div
+        className={`w-full ${size} rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_32px_90px_-60px_rgba(0,0,0,0.9)]`}
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const buildErrorMessage = (fallback, error) => {
+  const details = error?.message || error?.details || "";
+  return details ? `${fallback} (${details})` : fallback;
+};
+
+const pad2 = (value) => String(value).padStart(2, "0");
+
+const formatLocalDate = (date) =>
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
+const formatLocalTime = (date) =>
+  `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+
+const createToken = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  if (typeof window !== "undefined" && window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else if (typeof window !== "undefined" && window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+  }
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+};
+
+const emptyForm = {
+  clientId: "",
+  employeeId: "",
+  serviceId: "",
+  date: "",
+  time: "",
+  title: "",
+  description: "",
+};
+
 export default function AppointmentsCalendar({
   appointments = [],
+  clients = [],
+  employees = [],
+  services = [],
+  currentEmployee,
+  companyId,
   isLoading = false,
+  onRefresh,
 }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formState, setFormState] = useState(emptyForm);
+  const [formStatus, setFormStatus] = useState({ type: "idle", message: "" });
+  const [isSaving, setIsSaving] = useState(false);
+  const [createdLink, setCreatedLink] = useState("");
+  const [copyStatus, setCopyStatus] = useState("");
   const today = useMemo(() => new Date(), []);
   const normalizedAppointments = useMemo(
     () =>
@@ -160,6 +232,198 @@ export default function AppointmentsCalendar({
   const canGoPrev = viewMonth.getTime() > minMonth.getTime();
   const canGoNext = viewMonth.getTime() < maxMonth.getTime();
   const hasAppointments = normalizedAppointments.length > 0;
+  const employeeOptions = useMemo(() => {
+    if (!currentEmployee || currentEmployee.role === "boss") return employees;
+    const match = employees.find((employee) => employee.uuid === currentEmployee.id);
+    if (match) return [match];
+    if (currentEmployee.id) {
+      return [{ uuid: currentEmployee.id, nombre: currentEmployee.name || "Empleado" }];
+    }
+    return [];
+  }, [currentEmployee, employees]);
+  const selectedService = services.find(
+    (service) => service.uuid === formState.serviceId
+  );
+  const selectedDuration = Number(selectedService?.duracion || 0);
+  const endTimeLabel = useMemo(() => {
+    if (!formState.date || !formState.time) return "--";
+    if (!Number.isFinite(selectedDuration) || selectedDuration <= 0) return "--";
+    const start = new Date(`${formState.date}T${formState.time}`);
+    if (Number.isNaN(start.getTime())) return "--";
+    const end = new Date(start.getTime());
+    end.setMinutes(end.getMinutes() + selectedDuration);
+    return TIME_FORMATTER.format(end);
+  }, [formState.date, formState.time, selectedDuration]);
+
+  const openModal = () => {
+    const now = new Date();
+    const defaultEmployeeId = employeeOptions[0]?.uuid || "";
+    const defaultClientId = clients[0]?.uuid || "";
+    const defaultServiceId = services[0]?.uuid || "";
+    setFormState({
+      clientId: defaultClientId,
+      employeeId: defaultEmployeeId,
+      serviceId: defaultServiceId,
+      date: formatLocalDate(now),
+      time: formatLocalTime(now),
+      title: "",
+      description: "",
+    });
+    setFormStatus({ type: "idle", message: "" });
+    setCreatedLink("");
+    setCopyStatus("");
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setFormStatus({ type: "idle", message: "" });
+    setCreatedLink("");
+    setCopyStatus("");
+  };
+
+  const handleChange = (field) => (event) => {
+    setFormState((prev) => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const handleCopyLink = async () => {
+    if (!createdLink) return;
+    try {
+      await navigator.clipboard.writeText(createdLink);
+      setCopyStatus("Enlace copiado.");
+    } catch (error) {
+      setCopyStatus("No se pudo copiar el enlace.");
+    }
+  };
+
+  const handleCreateAppointment = async (event) => {
+    event.preventDefault();
+
+    if (!companyId) {
+      setFormStatus({
+        type: "error",
+        message: "Falta el identificador de empresa.",
+      });
+      return;
+    }
+
+    if (!formState.clientId || !formState.employeeId || !formState.serviceId) {
+      setFormStatus({
+        type: "error",
+        message: "Selecciona cliente, empleado y servicio.",
+      });
+      return;
+    }
+
+    if (!formState.date || !formState.time) {
+      setFormStatus({
+        type: "error",
+        message: "Selecciona fecha y hora de inicio.",
+      });
+      return;
+    }
+
+    if (!Number.isFinite(selectedDuration) || selectedDuration <= 0) {
+      setFormStatus({
+        type: "error",
+        message: "El servicio seleccionado no tiene duracion valida.",
+      });
+      return;
+    }
+
+    const start = new Date(`${formState.date}T${formState.time}`);
+    if (Number.isNaN(start.getTime())) {
+      setFormStatus({
+        type: "error",
+        message: "La fecha u hora no son validas.",
+      });
+      return;
+    }
+
+    const end = new Date(start.getTime());
+    end.setMinutes(end.getMinutes() + selectedDuration);
+
+    let supabase;
+    try {
+      supabase = getSupabaseClient();
+    } catch (error) {
+      setFormStatus({
+        type: "error",
+        message: buildErrorMessage(
+          "Faltan variables de entorno de Supabase.",
+          error
+        ),
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    setFormStatus({ type: "loading", message: "Creando cita..." });
+    setCreatedLink("");
+    setCopyStatus("");
+
+    const { data: appointment, error: appointmentError } = await supabase
+      .from("citas")
+      .insert({
+        id_empresa: companyId,
+        id_empleado: formState.employeeId,
+        id_cliente: formState.clientId,
+        id_servicio: formState.serviceId,
+        titulo: formState.title.trim() || null,
+        descripcion: formState.description.trim() || null,
+        tiempo_inicio: start.toISOString(),
+        tiempo_fin: end.toISOString(),
+        estado: "pendiente",
+      })
+      .select("uuid,tiempo_inicio")
+      .single();
+
+    if (appointmentError) {
+      setFormStatus({
+        type: "error",
+        message: buildErrorMessage(
+          "No pudimos crear la cita.",
+          appointmentError
+        ),
+      });
+      setIsSaving(false);
+      return;
+    }
+
+    const token = createToken();
+    const { error: confirmationError } = await supabase
+      .from("confirmaciones")
+      .insert({
+        id_cita: appointment.uuid,
+        token_hash: token,
+        expires_at: appointment.tiempo_inicio,
+        tipo: "confirmar",
+      });
+
+    if (confirmationError) {
+      setFormStatus({
+        type: "error",
+        message: buildErrorMessage(
+          "La cita se creo, pero no pudimos generar la confirmacion.",
+          confirmationError
+        ),
+      });
+      setIsSaving(false);
+      return;
+    }
+
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "";
+    const link = origin ? `${origin}/confirmar/${token}` : token;
+
+    setCreatedLink(link);
+    setFormStatus({
+      type: "success",
+      message: "Cita creada. Confirmacion generada.",
+    });
+    setIsSaving(false);
+    onRefresh?.();
+  };
 
   return (
     <section className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_24px_70px_-60px_rgba(0,0,0,0.9)]">
@@ -176,6 +440,14 @@ export default function AppointmentsCalendar({
           <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-4 py-2 text-xs font-semibold text-[color:var(--muted-strong)]">
             {normalizedAppointments.length}
           </span>
+          <button
+            className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={isLoading}
+            onClick={openModal}
+            type="button"
+          >
+            Nueva cita
+          </button>
           <div className="flex items-center gap-2">
             <button
               className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] disabled:cursor-not-allowed disabled:opacity-40"
@@ -283,6 +555,190 @@ export default function AppointmentsCalendar({
           </div>
         )}
       </div>
+
+      <ModalShell isOpen={isModalOpen} onClose={closeModal} size="max-w-3xl">
+        <form onSubmit={handleCreateAppointment}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--muted)]">
+                Nueva cita
+              </p>
+              <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                Completa los datos y se generara una confirmacion.
+              </p>
+            </div>
+            <button
+              className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+              onClick={closeModal}
+              type="button"
+            >
+              Cerrar
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <label className="text-sm text-[color:var(--foreground)]">
+              Cliente
+              <select
+                className="mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.3)]"
+                onChange={handleChange("clientId")}
+                required
+                value={formState.clientId}
+              >
+                <option value="">Selecciona un cliente</option>
+                {clients.map((client) => (
+                  <option key={client.uuid} value={client.uuid}>
+                    {client.nombre} {client.telefono ? `(${client.telefono})` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm text-[color:var(--foreground)]">
+              Empleado
+              <select
+                className="mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.3)]"
+                onChange={handleChange("employeeId")}
+                required
+                value={formState.employeeId}
+              >
+                <option value="">Selecciona un empleado</option>
+                {employeeOptions.map((employee) => (
+                  <option key={employee.uuid} value={employee.uuid}>
+                    {employee.nombre} {employee.correo ? `(${employee.correo})` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm text-[color:var(--foreground)]">
+              Servicio
+              <select
+                className="mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.3)]"
+                onChange={handleChange("serviceId")}
+                required
+                value={formState.serviceId}
+              >
+                <option value="">Selecciona un servicio</option>
+                {services.map((service) => (
+                  <option key={service.uuid} value={service.uuid}>
+                    {service.nombre} ({service.duracion} min)
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm text-[color:var(--foreground)]">
+              Fecha
+              <input
+                className="mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.3)]"
+                onChange={handleChange("date")}
+                required
+                type="date"
+                value={formState.date}
+              />
+            </label>
+
+            <label className="text-sm text-[color:var(--foreground)]">
+              Hora inicio
+              <input
+                className="mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.3)]"
+                onChange={handleChange("time")}
+                required
+                type="time"
+                value={formState.time}
+              />
+            </label>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="text-sm text-[color:var(--foreground)]">
+              Titulo (opcional)
+              <input
+                className="mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.3)]"
+                onChange={handleChange("title")}
+                placeholder="Corte y barba"
+                type="text"
+                value={formState.title}
+              />
+            </label>
+
+            <label className="text-sm text-[color:var(--foreground)]">
+              Descripcion (opcional)
+              <input
+                className="mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.3)]"
+                onChange={handleChange("description")}
+                placeholder="Notas internas"
+                type="text"
+                value={formState.description}
+              />
+            </label>
+          </div>
+
+          {selectedService && (
+            <p className="mt-4 text-xs text-[color:var(--muted)]">
+              Duracion del servicio: {selectedDuration} min. Fin estimado:{" "}
+              {endTimeLabel}
+            </p>
+          )}
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              className="rounded-2xl bg-[linear-gradient(135deg,var(--supabase-green),var(--supabase-green-dark))] px-5 py-3 text-sm font-semibold text-[#04140b] shadow-[0_18px_40px_-24px_rgba(31,157,107,0.6)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={isSaving}
+              type="submit"
+            >
+              Crear cita
+            </button>
+            <button
+              className="rounded-2xl border border-[color:var(--border)] px-5 py-3 text-sm font-semibold text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+              onClick={closeModal}
+              type="button"
+            >
+              Cancelar
+            </button>
+          </div>
+
+          {formStatus.message && (
+            <div
+              className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
+                formStatus.type === "error"
+                  ? "border-rose-300/30 bg-rose-500/10 text-rose-200"
+                  : formStatus.type === "success"
+                  ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-200"
+                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--muted)]"
+              }`}
+            >
+              {formStatus.message}
+            </div>
+          )}
+
+          {createdLink && (
+            <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--muted-strong)]">
+              <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                Enlace de confirmacion
+              </p>
+              <p className="mt-2 break-all text-[color:var(--foreground)]">
+                {createdLink}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button
+                  className="rounded-2xl border border-[color:var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+                  onClick={handleCopyLink}
+                  type="button"
+                >
+                  Copiar enlace
+                </button>
+                {copyStatus && (
+                  <span className="text-xs text-[color:var(--muted)]">
+                    {copyStatus}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </form>
+      </ModalShell>
     </section>
   );
 }

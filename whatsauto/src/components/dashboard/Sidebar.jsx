@@ -67,6 +67,16 @@ const CalendarIcon = ({ className }) => (
   </IconBase>
 );
 
+const WaitlistIcon = ({ className }) => (
+  <IconBase className={className}>
+    <path d="M4 6h9" />
+    <path d="M4 12h9" />
+    <path d="M4 18h6" />
+    <circle cx="18" cy="12" r="3" />
+    <path d="M18 10.5v1.5l1 1" />
+  </IconBase>
+);
+
 const ClientsIcon = ({ className }) => (
   <IconBase className={className}>
     <circle cx="12" cy="9" r="3" />
@@ -107,6 +117,7 @@ const ICONS_BY_KEY = {
   empleados: TeamIcon,
   servicios: ServicesIcon,
   citas: CalendarIcon,
+  esperas: WaitlistIcon,
   clientes: ClientsIcon,
 };
 

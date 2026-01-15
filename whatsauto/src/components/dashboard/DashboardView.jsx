@@ -17,6 +17,7 @@ import Sidebar from "./Sidebar";
 import ServicesPanel from "./ServicesPanel";
 import StatsSummary from "./StatsSummary";
 import UpcomingAppointmentsTable from "./UpcomingAppointmentsTable";
+import WaitlistPanel from "./WaitlistPanel";
 
 export default function DashboardView({
   activeKey: initialActiveKey = "panel",
@@ -27,6 +28,7 @@ export default function DashboardView({
   employees,
   clients,
   confirmations,
+  waitlist,
   summary,
   services,
   upcomingAppointments,
@@ -68,6 +70,7 @@ export default function DashboardView({
   const isClientsView = activeKey === "clientes";
   const isServicesView = activeKey === "servicios";
   const isAppointmentsView = activeKey === "citas";
+  const isWaitlistView = activeKey === "esperas";
 
   return (
     <div className="relative flex w-full">
@@ -107,7 +110,11 @@ export default function DashboardView({
               onRefresh={onRefreshData}
             />
           ) : isClientsView ? (
-            <ClientsPanel clients={clients} isLoading={dataLoading} />
+            <ClientsPanel
+              clients={clients}
+              isLoading={dataLoading}
+              onRefresh={onRefreshData}
+            />
           ) : isServicesView ? (
             <ServicesPanel
               canManage={employee.role === "boss"}
@@ -117,11 +124,25 @@ export default function DashboardView({
               onRefresh={onRefreshData}
               services={services}
             />
+          ) : isWaitlistView ? (
+            <WaitlistPanel
+              clients={clients}
+              companyId={employee.companyId}
+              isLoading={dataLoading}
+              onRefresh={onRefreshData}
+              waitlist={waitlist}
+            />
           ) : isAppointmentsView ? (
             <>
               <AppointmentsCalendar
                 appointments={upcomingAppointments}
+                clients={clients}
+                employees={employees}
+                services={services}
+                currentEmployee={employee}
+                companyId={employee.companyId}
                 isLoading={dataLoading}
+                onRefresh={onRefreshData}
               />
               <ConfirmationsTable
                 confirmations={confirmations}

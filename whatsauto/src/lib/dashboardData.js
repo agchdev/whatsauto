@@ -4,7 +4,35 @@ const buildErrorMessage = (fallback, error) => {
   return details ? `${fallback} (${details})` : fallback;
 };
 
-export const fetchDashboardData = async ({ supabase, userId }) => {
+const fetchConfirmationsFromApi = async (accessToken) => {
+  if (!accessToken || typeof fetch !== "function") {
+    return { data: null, error: new Error("Missing access token.") };
+  }
+
+  try {
+    const response = await fetch("/api/confirmations", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok || payload.status !== "ok") {
+      const message =
+        payload.message || "No pudimos cargar las confirmaciones.";
+      return { data: null, error: new Error(message) };
+    }
+
+    return {
+      data: Array.isArray(payload.confirmations) ? payload.confirmations : [],
+      error: null,
+    };
+  } catch (error) {
+    return { data: null, error };
+  }
+};
+
+export const fetchDashboardData = async ({ supabase, userId, accessToken }) => {
   const errors = [];
   const nowIso = new Date().toISOString();
   const visibleStatuses = ["pendiente", "confirmada", "realizada"];
@@ -30,6 +58,7 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
       employees: [],
       upcomingAppointments: [],
       confirmations: [],
+      waitlist: [],
       error: buildErrorMessage(
         "No pudimos cargar los datos del empleado.",
         employeeError
@@ -110,12 +139,22 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
     .eq("id_empresa", employeeData.id_empresa)
     .order("nombre", { ascending: true });
 
-  const confirmationsPromise = supabase
-    .from("confirmaciones")
+  const confirmationsPromise = accessToken
+    ? fetchConfirmationsFromApi(accessToken)
+    : supabase
+        .from("confirmaciones")
+        .select(
+          "uuid,tipo,expires_at,used_at,created_at,citas!inner(uuid,tiempo_inicio,tiempo_fin,titulo,clientes(nombre,telefono),empleados(nombre),servicios(nombre))"
+        )
+        .eq(confirmationScope, scopeValue)
+        .order("created_at", { ascending: false });
+
+  const waitlistPromise = supabase
+    .from("esperas")
     .select(
-      "uuid,tipo,token_hash,expires_at,used_at,created_at,citas!inner(uuid,tiempo_inicio,tiempo_fin,titulo,clientes(nombre,telefono),empleados(nombre),servicios(nombre))"
+      "uuid,id_cita,id_cliente,created_at,citas!inner(uuid,tiempo_inicio,tiempo_fin,estado,titulo,empleados(nombre),servicios(nombre)),clientes(uuid,nombre,telefono)"
     )
-    .eq(confirmationScope, scopeValue)
+    .eq("citas.id_empresa", employeeData.id_empresa)
     .order("created_at", { ascending: false });
 
   const [
@@ -128,6 +167,7 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
     employeesResponse,
     clientsResponse,
     confirmationsResponse,
+    waitlistResponse,
   ] = await Promise.all([
     companyPromise,
     completedPromise,
@@ -138,6 +178,7 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
     employeesPromise,
     clientsPromise,
     confirmationsPromise,
+    waitlistPromise,
   ]);
 
   if (companyResponse?.error) {
@@ -200,6 +241,11 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
       )
     );
   }
+  if (waitlistResponse?.error) {
+    errors.push(
+      buildErrorMessage("No pudimos cargar la lista de espera.", waitlistResponse.error)
+    );
+  }
 
   const completedAppointments = completedResponse?.data ?? [];
   const totalIncome = completedAppointments.reduce((acc, appointment) => {
@@ -225,6 +271,7 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
     employees: employeesResponse?.data ?? [],
     upcomingAppointments: upcomingResponse?.data ?? [],
     confirmations: confirmationsResponse?.data ?? [],
+    waitlist: waitlistResponse?.data ?? [],
     error: errors.join(" "),
   };
 };
