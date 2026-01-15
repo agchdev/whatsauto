@@ -29,6 +29,7 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
       services: [],
       employees: [],
       upcomingAppointments: [],
+      confirmations: [],
       error: buildErrorMessage(
         "No pudimos cargar los datos del empleado.",
         employeeError
@@ -47,6 +48,8 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
   const scopeField = employeeData.role === "boss" ? "id_empresa" : "id_empleado";
   const scopeValue =
     employeeData.role === "boss" ? employeeData.id_empresa : employeeData.uuid;
+  const confirmationScope =
+    employeeData.role === "boss" ? "citas.id_empresa" : "citas.id_empleado";
 
   // Citas realizadas: base para ingresos. Cambia el estado si tu regla de ingresos es distinta.
   const completedPromise = supabase
@@ -107,6 +110,14 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
     .eq("id_empresa", employeeData.id_empresa)
     .order("nombre", { ascending: true });
 
+  const confirmationsPromise = supabase
+    .from("confirmaciones")
+    .select(
+      "uuid,tipo,token_hash,expires_at,used_at,created_at,citas!inner(uuid,tiempo_inicio,tiempo_fin,titulo,clientes(nombre,telefono),empleados(nombre),servicios(nombre))"
+    )
+    .eq(confirmationScope, scopeValue)
+    .order("created_at", { ascending: false });
+
   const [
     companyResponse,
     completedResponse,
@@ -116,6 +127,7 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
     servicesResponse,
     employeesResponse,
     clientsResponse,
+    confirmationsResponse,
   ] = await Promise.all([
     companyPromise,
     completedPromise,
@@ -125,6 +137,7 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
     servicesPromise,
     employeesPromise,
     clientsPromise,
+    confirmationsPromise,
   ]);
 
   if (companyResponse?.error) {
@@ -179,6 +192,14 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
       buildErrorMessage("No pudimos cargar los clientes.", clientsResponse.error)
     );
   }
+  if (confirmationsResponse?.error) {
+    errors.push(
+      buildErrorMessage(
+        "No pudimos cargar las confirmaciones.",
+        confirmationsResponse.error
+      )
+    );
+  }
 
   const completedAppointments = completedResponse?.data ?? [];
   const totalIncome = completedAppointments.reduce((acc, appointment) => {
@@ -203,6 +224,7 @@ export const fetchDashboardData = async ({ supabase, userId }) => {
     services: servicesResponse?.data ?? [],
     employees: employeesResponse?.data ?? [],
     upcomingAppointments: upcomingResponse?.data ?? [],
+    confirmations: confirmationsResponse?.data ?? [],
     error: errors.join(" "),
   };
 };

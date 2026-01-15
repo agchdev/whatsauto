@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatDateTime, formatDuration, formatPrice } from "../../lib/formatters";
 import { getSupabaseClient } from "../../lib/supabaseClient";
 
@@ -9,17 +9,61 @@ const buildErrorMessage = (fallback, error) => {
   return details ? `${fallback} (${details})` : fallback;
 };
 
-export default function ClientsPanel({ clients = [], isLoading }) {
+const ModalShell = ({ isOpen, onClose, children, size = "max-w-xl" }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 py-10"
+      onClick={onClose}
+    >
+      <div
+        className={`w-full ${size} rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_32px_90px_-60px_rgba(0,0,0,0.9)]`}
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
+const emptyForm = {
+  name: "",
+  phone: "",
+};
+
+export default function ClientsPanel({ clients = [], isLoading, onRefresh }) {
+  const [clientList, setClientList] = useState(clients);
   const [selectedClient, setSelectedClient] = useState(null);
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [editStatus, setEditStatus] = useState({ type: "idle", message: "" });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editingClient, setEditingClient] = useState(null);
+
+  useEffect(() => {
+    setClientList(clients);
+    if (selectedClient) {
+      const updated = clients.find((client) => client.uuid === selectedClient.uuid);
+      if (updated) {
+        setSelectedClient(updated);
+      }
+    }
+  }, [clients, selectedClient]);
 
   const handleSelectClient = async (client) => {
     setSelectedClient(client);
     setHistory([]);
     setHistoryError("");
     setHistoryLoading(true);
+    setEditOpen(false);
+    setEditingClient(null);
+    setEditStatus({ type: "idle", message: "" });
 
     let supabase;
     try {
@@ -57,6 +101,104 @@ export default function ClientsPanel({ clients = [], isLoading }) {
     setHistoryLoading(false);
   };
 
+  const handleEditOpen = () => {
+    if (!selectedClient) return;
+    setEditingClient(selectedClient);
+    setEditForm({
+      name: selectedClient.nombre || "",
+      phone: selectedClient.telefono || "",
+    });
+    setEditStatus({ type: "idle", message: "" });
+    setEditOpen(true);
+  };
+
+  const handleEditClose = () => {
+    setEditOpen(false);
+    setEditingClient(null);
+    setEditForm(emptyForm);
+    setEditStatus({ type: "idle", message: "" });
+  };
+
+  const handleEditChange = (field) => (event) => {
+    setEditForm((prev) => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const handleEditSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!editingClient?.uuid) {
+      setEditStatus({
+        type: "error",
+        message: "Selecciona un cliente para editar.",
+      });
+      return;
+    }
+
+    const trimmedName = editForm.name.trim();
+    if (!trimmedName) {
+      setEditStatus({ type: "error", message: "El nombre es obligatorio." });
+      return;
+    }
+
+    let supabase;
+    try {
+      supabase = getSupabaseClient();
+    } catch (error) {
+      setEditStatus({
+        type: "error",
+        message: buildErrorMessage(
+          "Faltan variables de entorno de Supabase.",
+          error
+        ),
+      });
+      return;
+    }
+
+    setEditSaving(true);
+    setEditStatus({ type: "loading", message: "Guardando cliente..." });
+
+    const payload = {
+      nombre: trimmedName,
+      telefono: editForm.phone.trim() || null,
+    };
+
+    const { data, error } = await supabase
+      .from("clientes")
+      .update(payload)
+      .eq("uuid", editingClient.uuid)
+      .select("uuid,nombre,telefono")
+      .single();
+
+    if (error) {
+      setEditStatus({
+        type: "error",
+        message:
+          error.message || "No pudimos actualizar el cliente. Intenta otra vez.",
+      });
+      setEditSaving(false);
+      return;
+    }
+
+    const updatedClient = data || {
+      uuid: editingClient.uuid,
+      nombre: payload.nombre,
+      telefono: payload.telefono,
+    };
+
+    setClientList((prev) =>
+      prev.map((client) =>
+        client.uuid === updatedClient.uuid ? { ...client, ...updatedClient } : client
+      )
+    );
+    setSelectedClient((prev) =>
+      prev?.uuid === updatedClient.uuid ? { ...prev, ...updatedClient } : prev
+    );
+
+    setEditSaving(false);
+    handleEditClose();
+    onRefresh?.();
+  };
+
   return (
     <section className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_24px_70px_-60px_rgba(0,0,0,0.9)]">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -69,7 +211,7 @@ export default function ClientsPanel({ clients = [], isLoading }) {
           </h2>
         </div>
         <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-4 py-2 text-xs font-semibold text-[color:var(--muted-strong)]">
-          {clients.length}
+          {clientList.length}
         </span>
       </div>
 
@@ -83,9 +225,9 @@ export default function ClientsPanel({ clients = [], isLoading }) {
               <p className="py-3 text-sm text-[color:var(--muted)]">
                 Cargando clientes...
               </p>
-            ) : clients.length ? (
+            ) : clientList.length ? (
               <ul className="space-y-2">
-                {clients.map((client) => {
+                {clientList.map((client) => {
                   const isActive = selectedClient?.uuid === client.uuid;
                   return (
                     <li key={client.uuid}>
@@ -127,9 +269,19 @@ export default function ClientsPanel({ clients = [], isLoading }) {
             <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--muted)]">
               Historial de citas
             </p>
-            <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1 text-xs font-semibold text-[color:var(--muted-strong)]">
-              {history.length}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1 text-xs font-semibold text-[color:var(--muted-strong)]">
+                {history.length}
+              </span>
+              <button
+                className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={!selectedClient}
+                onClick={handleEditOpen}
+                type="button"
+              >
+                Editar cliente
+              </button>
+            </div>
           </div>
 
           {!selectedClient ? (
@@ -198,6 +350,86 @@ export default function ClientsPanel({ clients = [], isLoading }) {
           )}
         </div>
       </div>
+
+      <ModalShell isOpen={editOpen} onClose={handleEditClose}>
+        <form onSubmit={handleEditSubmit}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--muted)]">
+                Editar cliente
+              </p>
+              {editingClient && (
+                <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                  {editingClient.nombre || "Cliente"}
+                </p>
+              )}
+            </div>
+            <button
+              className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+              onClick={handleEditClose}
+              type="button"
+            >
+              Cerrar
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <label className="text-sm text-[color:var(--foreground)]">
+              Nombre
+              <input
+                className="mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.3)]"
+                onChange={handleEditChange("name")}
+                placeholder="Nombre"
+                required
+                type="text"
+                value={editForm.name}
+              />
+            </label>
+
+            <label className="text-sm text-[color:var(--foreground)]">
+              Telefono
+              <input
+                className="mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.3)]"
+                onChange={handleEditChange("phone")}
+                placeholder="600 000 000"
+                type="text"
+                value={editForm.phone}
+              />
+            </label>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              className="rounded-2xl bg-[linear-gradient(135deg,var(--supabase-green),var(--supabase-green-dark))] px-5 py-3 text-sm font-semibold text-[#04140b] shadow-[0_18px_40px_-24px_rgba(31,157,107,0.6)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={editSaving}
+              type="submit"
+            >
+              Guardar cambios
+            </button>
+            <button
+              className="rounded-2xl border border-[color:var(--border)] px-5 py-3 text-sm font-semibold text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+              onClick={handleEditClose}
+              type="button"
+            >
+              Cancelar
+            </button>
+          </div>
+
+          {editStatus.message && (
+            <div
+              className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
+                editStatus.type === "error"
+                  ? "border-rose-300/30 bg-rose-500/10 text-rose-200"
+                  : editStatus.type === "success"
+                  ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-200"
+                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--muted)]"
+              }`}
+            >
+              {editStatus.message}
+            </div>
+          )}
+        </form>
+      </ModalShell>
     </section>
   );
 }

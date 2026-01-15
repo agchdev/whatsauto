@@ -4,26 +4,108 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { formatDateTime, formatPrice } from "../../lib/formatters";
 
+const VALID_TIPOS = ["confirmar", "eliminar", "espera", "modificar"];
+
+const TYPE_CONFIG = {
+  confirmar: {
+    eyebrow: "Confirmacion",
+    title: "Cita pendiente de respuesta",
+    prompt: "Confirma o rechaza la cita.",
+    confirmLabel: "Confirmar cita",
+    rejectLabel: "Rechazar cita",
+    confirmVariant: "primary",
+    rejectVariant: "danger",
+  },
+  eliminar: {
+    eyebrow: "Eliminacion",
+    title: "Confirmar eliminacion de la cita",
+    prompt: "Confirma si deseas eliminar la cita.",
+    confirmLabel: "Eliminar cita",
+    rejectLabel: "Mantener cita",
+    confirmVariant: "danger",
+    rejectVariant: "primary",
+  },
+  espera: {
+    eyebrow: "Lista de espera",
+    title: "Confirmar lista de espera",
+    prompt: "Confirma si deseas entrar en la lista de espera.",
+    confirmLabel: "Entrar en lista de espera",
+    rejectLabel: "No por ahora",
+    confirmVariant: "primary",
+    rejectVariant: "danger",
+  },
+  modificar: {
+    eyebrow: "Modificacion",
+    title: "Confirmar modificacion de la cita",
+    prompt: "Confirma si aceptas la modificacion.",
+    confirmLabel: "Aceptar cambios",
+    rejectLabel: "Rechazar cambios",
+    confirmVariant: "primary",
+    rejectVariant: "danger",
+  },
+};
+
 const initialStatus = {
   state: "loading",
   message: "Cargando confirmacion...",
   appointment: null,
 };
 
-export default function ConfirmAppointmentPage() {
+const BUTTON_BASE =
+  "w-full rounded-2xl border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70";
+const BUTTON_VARIANTS = {
+  primary: `${BUTTON_BASE} border-[color:var(--border)] bg-[color:var(--surface-strong)] text-[color:var(--foreground)] hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]`,
+  danger: `${BUTTON_BASE} border-rose-400/40 bg-rose-500/10 text-rose-200 hover:border-rose-400/70`,
+};
+
+const normalizeParam = (value) =>
+  typeof value === "string" ? value.trim().toLowerCase() : "";
+const normalizeToken = (value) =>
+  typeof value === "string" ? value.trim() : "";
+
+export default function ConfirmationPage({
+  defaultTipo = "confirmar",
+  token: tokenProp,
+  tipo: tipoProp,
+}) {
   const params = useParams();
-  const tokenParam = params?.token;
-  const token = Array.isArray(tokenParam) ? tokenParam[0] : tokenParam;
+  const tokenParam = tokenProp ?? params?.token;
+  const tipoParam = tipoProp ?? params?.tipo;
+  const rawToken = Array.isArray(tokenParam) ? tokenParam[0] : tokenParam;
+  const fallbackTipo = normalizeParam(defaultTipo) || "confirmar";
+  const tipoRaw = Array.isArray(tipoParam) ? tipoParam[0] : tipoParam;
+  const tipo = normalizeParam(tipoRaw) || fallbackTipo;
+  const token = normalizeToken(rawToken);
+  const isTipoValid = VALID_TIPOS.includes(tipo);
+  const config = TYPE_CONFIG[tipo] || TYPE_CONFIG.confirmar;
   const [status, setStatus] = useState(initialStatus);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      setStatus({
+        state: "invalid",
+        message: "Token no valido.",
+        appointment: null,
+      });
+      return;
+    }
+
+    if (!isTipoValid) {
+      setStatus({
+        state: "invalid",
+        message: "Tipo de confirmacion no valido.",
+        appointment: null,
+      });
+      return;
+    }
 
     const load = async () => {
       setStatus(initialStatus);
       const response = await fetch(
-        `/api/confirm?token=${encodeURIComponent(token)}`
+        `/api/confirm?token=${encodeURIComponent(token)}&tipo=${encodeURIComponent(
+          tipo
+        )}`
       );
       const payload = await response.json().catch(() => ({}));
 
@@ -39,22 +121,22 @@ export default function ConfirmAppointmentPage() {
 
       setStatus({
         state: "ready",
-        message: "Confirma o rechaza la cita.",
+        message: config.prompt,
         appointment: payload.appointment,
       });
     };
 
     load();
-  }, [token]);
+  }, [config.prompt, isTipoValid, tipo, token]);
 
   const handleAction = async (action) => {
-    if (!token) return;
+    if (!token || !isTipoValid) return;
     setIsSubmitting(true);
 
     const response = await fetch("/api/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, action }),
+      body: JSON.stringify({ token, tipo, action }),
     });
 
     const payload = await response.json().catch(() => ({}));
@@ -70,6 +152,10 @@ export default function ConfirmAppointmentPage() {
   };
 
   const appointment = status.appointment;
+  const confirmClass =
+    BUTTON_VARIANTS[config.confirmVariant] || BUTTON_VARIANTS.primary;
+  const rejectClass =
+    BUTTON_VARIANTS[config.rejectVariant] || BUTTON_VARIANTS.danger;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_var(--theme-glow),_var(--background)_55%,_var(--theme-base)_100%)]">
@@ -82,10 +168,10 @@ export default function ConfirmAppointmentPage() {
       <main className="relative mx-auto flex min-h-screen max-w-xl items-center px-6 py-16">
         <section className="w-full rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-8 shadow-[0_32px_90px_-60px_rgba(0,0,0,0.9)]">
           <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--muted)]">
-            Confirmacion
+            {config.eyebrow}
           </p>
           <h1 className="mt-3 text-2xl font-semibold text-[color:var(--foreground)]">
-            Cita pendiente de respuesta
+            {config.title}
           </h1>
           <p className="mt-2 text-sm text-[color:var(--muted)]">
             {status.message}
@@ -166,24 +252,20 @@ export default function ConfirmAppointmentPage() {
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             <button
-              className="w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-4 py-3 text-sm font-semibold text-[color:var(--foreground)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={
-                status.state !== "ready" || isSubmitting || status.state === "used"
-              }
+              className={confirmClass}
+              disabled={status.state !== "ready" || isSubmitting}
               onClick={() => handleAction("confirm")}
               type="button"
             >
-              Confirmar cita
+              {config.confirmLabel}
             </button>
             <button
-              className="w-full rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200 transition hover:border-rose-400/70 disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={
-                status.state !== "ready" || isSubmitting || status.state === "used"
-              }
+              className={rejectClass}
+              disabled={status.state !== "ready" || isSubmitting}
               onClick={() => handleAction("reject")}
               type="button"
             >
-              Rechazar cita
+              {config.rejectLabel}
             </button>
           </div>
         </section>

@@ -19,6 +19,26 @@ const getAssignedEmployees = (service) =>
     .map((link) => link?.empleados)
     .filter(Boolean);
 
+const ModalShell = ({ isOpen, onClose, children, size = "max-w-3xl" }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6 py-10"
+      onClick={onClose}
+    >
+      <div
+        className={`w-full ${size} rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_32px_90px_-60px_rgba(0,0,0,0.9)]`}
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
 export default function ServicesPanel({
   services = [],
   employees = [],
@@ -180,10 +200,10 @@ export default function ServicesPanel({
           {canManage && (
             <button
               className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
-              onClick={formOpen && !editingService ? handleCancel : handleOpenCreate}
+              onClick={formOpen ? handleCancel : handleOpenCreate}
               type="button"
             >
-              {formOpen && !editingService ? "Cerrar" : "Anadir servicio"}
+              {formOpen ? "Cerrar" : "Anadir servicio"}
             </button>
           )}
         </div>
@@ -195,11 +215,100 @@ export default function ServicesPanel({
         </p>
       )}
 
-      {formOpen && canManage && (
-        <form
-          className="mt-6 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-5"
-          onSubmit={handleSubmit}
-        >
+
+      <div className="mt-6 overflow-x-auto">
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+            <tr>
+              <th className="pb-3" scope="col">
+                Servicio
+              </th>
+              <th className="pb-3" scope="col">
+                Duracion
+              </th>
+              <th className="pb-3" scope="col">
+                Precio
+              </th>
+              <th className="pb-3" scope="col">
+                Empleado asignado
+              </th>
+              {canManage && (
+                <th className="pb-3 text-right" scope="col">
+                  Acciones
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td className="py-4 text-[color:var(--muted)]" colSpan={columnCount}>
+                  Cargando servicios...
+                </td>
+              </tr>
+            ) : services.length ? (
+              services.map((service) => {
+                const assignedEmployees = getAssignedEmployees(service);
+                const employeeNames = assignedEmployees
+                  .map((employee) => employee.nombre)
+                  .join(", ");
+                const employeeEmails = assignedEmployees
+                  .map((employee) => employee.correo)
+                  .filter(Boolean)
+                  .join(", ");
+                return (
+                  <tr
+                    key={service.uuid}
+                    className="border-t border-[color:var(--border)]"
+                  >
+                    <td className="py-4">
+                      <div className="font-semibold text-[color:var(--foreground)]">
+                        {service.nombre}
+                      </div>
+                    </td>
+                    <td className="py-4 text-[color:var(--muted-strong)]">
+                      {formatDuration(service.duracion)}
+                    </td>
+                    <td className="py-4 text-[color:var(--muted-strong)]">
+                      {formatPrice(service.precio)}
+                    </td>
+                    <td className="py-4">
+                      <div className="text-[color:var(--foreground)]">
+                        {employeeNames || "Sin asignar"}
+                      </div>
+                      {employeeEmails && (
+                        <div className="text-xs text-[color:var(--muted)]">
+                          {employeeEmails}
+                        </div>
+                      )}
+                    </td>
+                    {canManage && (
+                      <td className="py-4 text-right">
+                        <button
+                          className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+                          onClick={() => handleEdit(service)}
+                          type="button"
+                        >
+                          Editar
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td className="py-4 text-[color:var(--muted)]" colSpan={columnCount}>
+                  No hay servicios registrados por ahora.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <ModalShell isOpen={Boolean(formOpen && canManage)} onClose={handleCancel}>
+        <form onSubmit={handleSubmit}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--muted)]">
@@ -209,15 +318,13 @@ export default function ServicesPanel({
                 Completa los datos y asigna el servicio a un empleado.
               </p>
             </div>
-            {editingService && (
-              <button
-                className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
-                onClick={handleCancel}
-                type="button"
-              >
-                Cancelar edicion
-              </button>
-            )}
+            <button
+              className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+              onClick={handleCancel}
+              type="button"
+            >
+              Cerrar
+            </button>
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -310,98 +417,7 @@ export default function ServicesPanel({
             </div>
           )}
         </form>
-      )}
-
-      <div className="mt-6 overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
-            <tr>
-              <th className="pb-3" scope="col">
-                Servicio
-              </th>
-              <th className="pb-3" scope="col">
-                Duracion
-              </th>
-              <th className="pb-3" scope="col">
-                Precio
-              </th>
-              <th className="pb-3" scope="col">
-                Empleado asignado
-              </th>
-              {canManage && (
-                <th className="pb-3 text-right" scope="col">
-                  Acciones
-                </th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td className="py-4 text-[color:var(--muted)]" colSpan={columnCount}>
-                  Cargando servicios...
-                </td>
-              </tr>
-            ) : services.length ? (
-              services.map((service) => {
-                const assignedEmployees = getAssignedEmployees(service);
-                const employeeNames = assignedEmployees
-                  .map((employee) => employee.nombre)
-                  .join(", ");
-                const employeeEmails = assignedEmployees
-                  .map((employee) => employee.correo)
-                  .filter(Boolean)
-                  .join(", ");
-                return (
-                  <tr
-                    key={service.uuid}
-                    className="border-t border-[color:var(--border)]"
-                  >
-                    <td className="py-4">
-                      <div className="font-semibold text-[color:var(--foreground)]">
-                        {service.nombre}
-                      </div>
-                    </td>
-                    <td className="py-4 text-[color:var(--muted-strong)]">
-                      {formatDuration(service.duracion)}
-                    </td>
-                    <td className="py-4 text-[color:var(--muted-strong)]">
-                      {formatPrice(service.precio)}
-                    </td>
-                    <td className="py-4">
-                      <div className="text-[color:var(--foreground)]">
-                        {employeeNames || "Sin asignar"}
-                      </div>
-                      {employeeEmails && (
-                        <div className="text-xs text-[color:var(--muted)]">
-                          {employeeEmails}
-                        </div>
-                      )}
-                    </td>
-                    {canManage && (
-                      <td className="py-4 text-right">
-                        <button
-                          className="rounded-full border border-[color:var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
-                          onClick={() => handleEdit(service)}
-                          type="button"
-                        >
-                          Editar
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td className="py-4 text-[color:var(--muted)]" colSpan={columnCount}>
-                  No hay servicios registrados por ahora.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      </ModalShell>
     </section>
   );
 }

@@ -10,6 +10,7 @@ import {
 } from "../../lib/theme";
 import AppointmentsCalendar from "./AppointmentsCalendar";
 import CompanyHeader from "./CompanyHeader";
+import ConfirmationsTable from "./ConfirmationsTable";
 import ClientsPanel from "./ClientsPanel";
 import EmployeesPanel from "./EmployeesPanel";
 import Sidebar from "./Sidebar";
@@ -25,6 +26,7 @@ export default function DashboardView({
   employee,
   employees,
   clients,
+  confirmations,
   summary,
   services,
   upcomingAppointments,
@@ -116,10 +118,16 @@ export default function DashboardView({
               services={services}
             />
           ) : isAppointmentsView ? (
-            <AppointmentsCalendar
-              appointments={upcomingAppointments}
-              isLoading={dataLoading}
-            />
+            <>
+              <AppointmentsCalendar
+                appointments={upcomingAppointments}
+                isLoading={dataLoading}
+              />
+              <ConfirmationsTable
+                confirmations={confirmations}
+                isLoading={dataLoading}
+              />
+            </>
           ) : (
             <>
               <StatsSummary

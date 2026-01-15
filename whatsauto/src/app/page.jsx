@@ -26,6 +26,7 @@ export default function Home() {
   const [employees, setEmployees] = useState([]);
   const [clients, setClients] = useState([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+  const [confirmations, setConfirmations] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState("");
   const mountedRef = useRef(true);
@@ -110,6 +111,7 @@ export default function Home() {
     setEmployees(result.employees);
     setClients(result.clients);
     setUpcomingAppointments(result.upcomingAppointments);
+    setConfirmations(result.confirmations);
     setDataError(result.error);
     setDataLoading(false);
   }, [resolveClient, session]);
@@ -128,6 +130,7 @@ export default function Home() {
       setEmployees([]);
       setClients([]);
       setUpcomingAppointments([]);
+      setConfirmations([]);
       setDataLoading(false);
       setDataError("");
       return;
@@ -229,6 +232,7 @@ export default function Home() {
             employee={employeeProfile}
             employees={employees}
             clients={clients}
+            confirmations={confirmations}
             onSignOut={handleSignOut}
             onRefreshData={refreshDashboardData}
             summary={summary}
