@@ -101,6 +101,9 @@ const formatLocalDate = (date) =>
 const formatLocalTime = (date) =>
   `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 
+const normalizeStatus = (value) =>
+  typeof value === "string" ? value.trim().toLowerCase() : "";
+
 const createToken = () => {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -148,6 +151,10 @@ export default function AppointmentsCalendar({
   const [editStatusValue, setEditStatusValue] = useState("pendiente");
   const [editStatus, setEditStatus] = useState({ type: "idle", message: "" });
   const [isEditSaving, setIsEditSaving] = useState(false);
+  const [regenStatus, setRegenStatus] = useState({ type: "idle", message: "" });
+  const [regenLink, setRegenLink] = useState("");
+  const [regenCopyStatus, setRegenCopyStatus] = useState("");
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [isDayOpen, setIsDayOpen] = useState(false);
   const [selectedDayKey, setSelectedDayKey] = useState("");
   const [selectedDayDate, setSelectedDayDate] = useState(null);
@@ -262,6 +269,8 @@ export default function AppointmentsCalendar({
     if (!selectedDayKey) return [];
     return appointmentsByDay[selectedDayKey] || [];
   }, [appointmentsByDay, selectedDayKey]);
+  const canRegenerateConfirmation =
+    normalizeStatus(editingAppointment?.estado) === "pendiente";
   const selectedDayLabel = useMemo(() => {
     if (!selectedDayDate) return "";
     return DAY_FORMATTER.format(selectedDayDate);
@@ -318,10 +327,7 @@ export default function AppointmentsCalendar({
 
   const openEditModal = (appointment) => {
     if (!appointment?.uuid) return;
-    const nextStatus =
-      typeof appointment?.estado === "string"
-        ? appointment.estado.toLowerCase()
-        : "pendiente";
+    const nextStatus = normalizeStatus(appointment?.estado) || "pendiente";
     setEditingAppointment(appointment);
     setEditStatusValue(
       STATUS_OPTIONS.some((option) => option.value === nextStatus)
@@ -329,6 +335,10 @@ export default function AppointmentsCalendar({
         : "pendiente"
     );
     setEditStatus({ type: "idle", message: "" });
+    setRegenStatus({ type: "idle", message: "" });
+    setRegenLink("");
+    setRegenCopyStatus("");
+    setIsRegenerating(false);
     setIsEditOpen(true);
   };
 
@@ -337,6 +347,10 @@ export default function AppointmentsCalendar({
     setEditingAppointment(null);
     setEditStatusValue("pendiente");
     setEditStatus({ type: "idle", message: "" });
+    setRegenStatus({ type: "idle", message: "" });
+    setRegenLink("");
+    setRegenCopyStatus("");
+    setIsRegenerating(false);
   };
 
   const openDayModal = (day) => {
@@ -362,6 +376,97 @@ export default function AppointmentsCalendar({
   const handleDayAppointmentClick = (appointment) => {
     closeDayModal();
     openEditModal(appointment);
+  };
+
+  const handleRegenerateLink = async () => {
+    if (!editingAppointment?.uuid) return;
+    if (!canRegenerateConfirmation) {
+      setRegenStatus({
+        type: "error",
+        message: "Solo disponible para citas pendientes.",
+      });
+      return;
+    }
+
+    let supabase;
+    try {
+      supabase = getSupabaseClient();
+    } catch (error) {
+      setRegenStatus({
+        type: "error",
+        message: buildErrorMessage(
+          "Faltan variables de entorno de Supabase.",
+          error
+        ),
+      });
+      return;
+    }
+
+    setIsRegenerating(true);
+    setRegenStatus({ type: "loading", message: "Generando enlace..." });
+    setRegenLink("");
+    setRegenCopyStatus("");
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+
+    if (!accessToken) {
+      setRegenStatus({
+        type: "error",
+        message: "Sesion invalida. Inicia sesion otra vez.",
+      });
+      setIsRegenerating(false);
+      return;
+    }
+
+    const response = await fetch("/api/confirmations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ appointmentId: editingAppointment.uuid }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok || payload.status !== "ok") {
+      setRegenStatus({
+        type: "error",
+        message: payload.message || "No pudimos generar el enlace.",
+      });
+      setIsRegenerating(false);
+      return;
+    }
+
+    const token = typeof payload.token === "string" ? payload.token : "";
+    if (!token) {
+      setRegenStatus({
+        type: "error",
+        message: "No pudimos generar el enlace.",
+      });
+      setIsRegenerating(false);
+      return;
+    }
+
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "";
+    const link = origin ? `${origin}/confirmar/${token}` : token;
+
+    setRegenLink(link);
+    setRegenStatus({ type: "success", message: "Enlace generado." });
+    setIsRegenerating(false);
+    onRefresh?.();
+  };
+
+  const handleCopyRegenLink = async () => {
+    if (!regenLink) return;
+    try {
+      await navigator.clipboard.writeText(regenLink);
+      setRegenCopyStatus("Enlace copiado.");
+    } catch (error) {
+      setRegenCopyStatus("No se pudo copiar el enlace.");
+    }
   };
 
   const handleChange = (field) => (event) => {
@@ -998,6 +1103,65 @@ export default function AppointmentsCalendar({
               Fin: {formatDateTime(editingAppointment?.tiempo_fin)}
             </p>
           </div>
+
+          {canRegenerateConfirmation && (
+            <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--muted-strong)]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                    Confirmacion
+                  </p>
+                  <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                    Genera un nuevo enlace para esta cita pendiente.
+                  </p>
+                </div>
+                <button
+                  className="rounded-2xl border border-[color:var(--border)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] disabled:cursor-not-allowed disabled:opacity-70"
+                  disabled={isRegenerating}
+                  onClick={handleRegenerateLink}
+                  type="button"
+                >
+                  {isRegenerating ? "Generando..." : "Generar enlace"}
+                </button>
+              </div>
+
+              {regenStatus.message && (
+                <p
+                  className={`mt-3 text-xs ${
+                    regenStatus.type === "error"
+                      ? "text-rose-200"
+                      : regenStatus.type === "success"
+                      ? "text-emerald-200"
+                      : "text-[color:var(--muted)]"
+                  }`}
+                >
+                  {regenStatus.message}
+                </p>
+              )}
+
+              {regenLink && (
+                <div className="mt-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+                  <p className="break-all text-xs text-[color:var(--foreground)]">
+                    {regenLink}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <button
+                      className="rounded-full border border-[color:var(--border)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+                      onClick={handleCopyRegenLink}
+                      type="button"
+                    >
+                      Copiar enlace
+                    </button>
+                    {regenCopyStatus && (
+                      <span className="text-[10px] text-[color:var(--muted)]">
+                        {regenCopyStatus}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <label className="mt-4 block text-sm text-[color:var(--foreground)]">
             Estado

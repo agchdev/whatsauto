@@ -1,5 +1,6 @@
 export const NAV_ITEMS = [
   { label: "Panel", key: "panel" },
+  { label: "Estadisticas", key: "estadisticas" },
   { label: "Empleados", key: "empleados" },
   { label: "Servicios", key: "servicios" },
   { label: "Citas", key: "citas" },

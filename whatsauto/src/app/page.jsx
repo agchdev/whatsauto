@@ -28,6 +28,7 @@ export default function Home() {
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [confirmations, setConfirmations] = useState([]);
   const [waitlist, setWaitlist] = useState([]);
+  const [statsAppointments, setStatsAppointments] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState("");
   const mountedRef = useRef(true);
@@ -115,6 +116,7 @@ export default function Home() {
     setUpcomingAppointments(result.upcomingAppointments);
     setConfirmations(result.confirmations);
     setWaitlist(result.waitlist);
+    setStatsAppointments(result.statsAppointments);
     setDataError(result.error);
     setDataLoading(false);
   }, [resolveClient, session]);
@@ -135,6 +137,7 @@ export default function Home() {
       setUpcomingAppointments([]);
       setConfirmations([]);
       setWaitlist([]);
+      setStatsAppointments([]);
       setDataLoading(false);
       setDataError("");
       return;
@@ -238,6 +241,7 @@ export default function Home() {
             clients={clients}
             confirmations={confirmations}
             waitlist={waitlist}
+            statsAppointments={statsAppointments}
             onSignOut={handleSignOut}
             onRefreshData={refreshDashboardData}
             summary={summary}

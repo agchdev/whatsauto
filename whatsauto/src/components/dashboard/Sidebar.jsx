@@ -42,6 +42,15 @@ const PanelIcon = ({ className }) => (
   </IconBase>
 );
 
+const StatsIcon = ({ className }) => (
+  <IconBase className={className}>
+    <path d="M4 20h16" />
+    <rect height="7" rx="1" width="3" x="6" y="11" />
+    <rect height="11" rx="1" width="3" x="11" y="7" />
+    <rect height="15" rx="1" width="3" x="16" y="3" />
+  </IconBase>
+);
+
 const TeamIcon = ({ className }) => (
   <IconBase className={className}>
     <circle cx="8" cy="9" r="3" />
@@ -114,6 +123,7 @@ const ChevronIcon = ({ className }) => (
 
 const ICONS_BY_KEY = {
   panel: PanelIcon,
+  estadisticas: StatsIcon,
   empleados: TeamIcon,
   servicios: ServicesIcon,
   citas: CalendarIcon,

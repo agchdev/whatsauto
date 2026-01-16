@@ -34,7 +34,10 @@ const fetchConfirmationsFromApi = async (accessToken) => {
 
 export const fetchDashboardData = async ({ supabase, userId, accessToken }) => {
   const errors = [];
-  const nowIso = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const endOfYear = new Date(now.getFullYear() + 1, 0, 1);
   const visibleStatuses = ["pendiente", "confirmada", "realizada"];
 
   const { data: employeeData, error: employeeError } = await supabase
@@ -59,6 +62,7 @@ export const fetchDashboardData = async ({ supabase, userId, accessToken }) => {
       upcomingAppointments: [],
       confirmations: [],
       waitlist: [],
+      statsAppointments: [],
       error: buildErrorMessage(
         "No pudimos cargar los datos del empleado.",
         employeeError
@@ -157,6 +161,16 @@ export const fetchDashboardData = async ({ supabase, userId, accessToken }) => {
     .eq("citas.id_empresa", employeeData.id_empresa)
     .order("created_at", { ascending: false });
 
+  const statsPromise = supabase
+    .from("citas")
+    .select(
+      "uuid,tiempo_inicio,estado,clientes(uuid,nombre),empleados(uuid,nombre),servicios(uuid,nombre)"
+    )
+    .eq(scopeField, scopeValue)
+    .in("estado", visibleStatuses)
+    .gte("tiempo_inicio", startOfYear.toISOString())
+    .lt("tiempo_inicio", endOfYear.toISOString());
+
   const [
     companyResponse,
     completedResponse,
@@ -168,6 +182,7 @@ export const fetchDashboardData = async ({ supabase, userId, accessToken }) => {
     clientsResponse,
     confirmationsResponse,
     waitlistResponse,
+    statsResponse,
   ] = await Promise.all([
     companyPromise,
     completedPromise,
@@ -179,6 +194,7 @@ export const fetchDashboardData = async ({ supabase, userId, accessToken }) => {
     clientsPromise,
     confirmationsPromise,
     waitlistPromise,
+    statsPromise,
   ]);
 
   if (companyResponse?.error) {
@@ -246,6 +262,11 @@ export const fetchDashboardData = async ({ supabase, userId, accessToken }) => {
       buildErrorMessage("No pudimos cargar la lista de espera.", waitlistResponse.error)
     );
   }
+  if (statsResponse?.error) {
+    errors.push(
+      buildErrorMessage("No pudimos cargar las estadisticas.", statsResponse.error)
+    );
+  }
 
   const completedAppointments = completedResponse?.data ?? [];
   const totalIncome = completedAppointments.reduce((acc, appointment) => {
@@ -272,6 +293,7 @@ export const fetchDashboardData = async ({ supabase, userId, accessToken }) => {
     upcomingAppointments: upcomingResponse?.data ?? [],
     confirmations: confirmationsResponse?.data ?? [],
     waitlist: waitlistResponse?.data ?? [],
+    statsAppointments: statsResponse?.data ?? [],
     error: errors.join(" "),
   };
 };

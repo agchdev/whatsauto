@@ -16,6 +16,7 @@ import EmployeesPanel from "./EmployeesPanel";
 import Sidebar from "./Sidebar";
 import ServicesPanel from "./ServicesPanel";
 import StatsSummary from "./StatsSummary";
+import StatisticsPanel from "./StatisticsPanel";
 import UpcomingAppointmentsTable from "./UpcomingAppointmentsTable";
 import WaitlistPanel from "./WaitlistPanel";
 
@@ -30,6 +31,7 @@ export default function DashboardView({
   confirmations,
   waitlist,
   summary,
+  statsAppointments,
   services,
   upcomingAppointments,
   onSignOut,
@@ -71,6 +73,7 @@ export default function DashboardView({
   const isServicesView = activeKey === "servicios";
   const isAppointmentsView = activeKey === "citas";
   const isWaitlistView = activeKey === "esperas";
+  const isStatsView = activeKey === "estadisticas";
 
   return (
     <div className="relative flex w-full">
@@ -131,6 +134,11 @@ export default function DashboardView({
               isLoading={dataLoading}
               onRefresh={onRefreshData}
               waitlist={waitlist}
+            />
+          ) : isStatsView ? (
+            <StatisticsPanel
+              appointments={statsAppointments}
+              isLoading={dataLoading}
             />
           ) : isAppointmentsView ? (
             <>
