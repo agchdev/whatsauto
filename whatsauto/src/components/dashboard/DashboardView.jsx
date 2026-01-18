@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DEFAULT_PALETTE_KEY } from "../../constants";
+import { DEFAULT_PALETTE_KEY, NAV_ITEMS } from "../../constants";
 import {
   applyPalette,
   loadStoredPalette,
@@ -39,6 +39,7 @@ export default function DashboardView({
 }) {
   const [activeKey, setActiveKey] = useState(initialActiveKey);
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [paletteKey, setPaletteKey] = useState(() => loadStoredPalette());
 
   useEffect(() => {
@@ -68,12 +69,19 @@ export default function DashboardView({
     setSidebarExpanded((prev) => !prev);
   };
 
+  const handleNavigate = (key) => {
+    setActiveKey(key);
+    setIsMobileNavOpen(false);
+  };
+
   const isEmployeesView = activeKey === "empleados";
   const isClientsView = activeKey === "clientes";
   const isServicesView = activeKey === "servicios";
   const isAppointmentsView = activeKey === "citas";
   const isWaitlistView = activeKey === "esperas";
   const isStatsView = activeKey === "estadisticas";
+  const activeLabel =
+    NAV_ITEMS.find((item) => item.key === activeKey)?.label || "Panel";
 
   return (
     <div className="relative flex w-full">
@@ -83,7 +91,9 @@ export default function DashboardView({
         employeeName={employee.name}
         employeeRole={employee.role}
         isExpanded={sidebarExpanded}
-        onNavigate={setActiveKey}
+        isMobileOpen={isMobileNavOpen}
+        onMobileClose={() => setIsMobileNavOpen(false)}
+        onNavigate={handleNavigate}
         onToggle={handleToggleSidebar}
         onPaletteChange={setPaletteKey}
         onSignOut={onSignOut}
@@ -92,10 +102,40 @@ export default function DashboardView({
 
       <div
         className={`relative flex-1 transition-[padding] duration-300 ${
-          sidebarExpanded ? "pl-72" : "pl-20"
+          sidebarExpanded ? "md:pl-72" : "md:pl-20"
         }`}
       >
-        <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10">
+        <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-10">
+          <div className="flex items-center justify-between gap-3 md:hidden">
+            <button
+              aria-label="Abrir menu"
+              className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-[color:var(--muted-strong)] shadow-[0_16px_40px_-30px_rgba(0,0,0,0.8)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+              onClick={() => setIsMobileNavOpen(true)}
+              type="button"
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.8"
+                viewBox="0 0 24 24"
+              >
+                <path d="M4 7h16" />
+                <path d="M4 12h16" />
+                <path d="M4 17h12" />
+              </svg>
+            </button>
+            <div className="text-right">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-[color:var(--muted)]">
+                {activeLabel}
+              </p>
+              <p className="text-sm font-semibold text-[color:var(--foreground)]">
+                {companyName}
+              </p>
+            </div>
+          </div>
           <CompanyHeader companyName={companyName} dataLoading={dataLoading} />
 
           {dataError && (

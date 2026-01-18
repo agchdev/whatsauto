@@ -63,7 +63,92 @@ export default function ConfirmationsTable({ confirmations = [], isLoading }) {
         </span>
       </div>
 
-      <div className="mt-6 overflow-x-auto">
+      <div className="mt-6 space-y-3 md:hidden">
+        {isLoading ? (
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+            Cargando confirmaciones...
+          </div>
+        ) : hasConfirmations ? (
+          paginatedConfirmations.map((confirmation) => {
+            const status = resolveStatus(confirmation);
+            const appointment = confirmation.citas;
+            const clientName = appointment?.clientes?.nombre || "Sin cliente";
+            const serviceName = appointment?.servicios?.nombre || "Sin servicio";
+            const employeeName = appointment?.empleados?.nombre || "Sin empleado";
+            const tipoLabel =
+              TYPE_LABELS[confirmation.tipo] || confirmation.tipo || "--";
+
+            return (
+              <div
+                key={confirmation.uuid}
+                className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                      Tipo
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-[color:var(--foreground)]">
+                      {tipoLabel}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${
+                      STATUS_STYLES[status] || STATUS_STYLES.pendiente
+                    }`}
+                  >
+                    {status}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                      Cliente
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-[color:var(--foreground)]">
+                      {clientName}
+                    </p>
+                    <p className="text-xs text-[color:var(--muted)]">
+                      {appointment?.titulo || serviceName}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                      Empleado
+                    </p>
+                    <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                      {employeeName}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                      Inicio
+                    </p>
+                    <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                      {formatDateTime(appointment?.tiempo_inicio)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                      Expira
+                    </p>
+                    <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                      {formatDateTime(confirmation.expires_at)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+            No hay confirmaciones registradas.
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6 hidden overflow-x-auto md:block">
         <table className="w-full min-w-[780px] text-left text-sm">
           <thead className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
             <tr>

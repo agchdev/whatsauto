@@ -163,7 +163,59 @@ const StatsSection = ({
         />
       </div>
 
-      <div className="mt-6 overflow-x-auto">
+      <div className="mt-6 space-y-3 md:hidden">
+        {isLoading ? (
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+            Cargando estadisticas...
+          </div>
+        ) : rows.length ? (
+          rows.map((row) => (
+            <div
+              key={row.id}
+              className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4"
+            >
+              <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                {label}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[color:var(--foreground)]">
+                {row.name}
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                    Hoy
+                  </p>
+                  <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                    {row.day}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                    Mes
+                  </p>
+                  <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                    {row.month}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                    Ano
+                  </p>
+                  <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                    {row.year}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+            {emptyMessage}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6 hidden overflow-x-auto md:block">
         <table className="w-full min-w-[520px] text-left text-sm">
           <thead className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
             <tr>

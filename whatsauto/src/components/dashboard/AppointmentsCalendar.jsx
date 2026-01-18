@@ -260,6 +260,13 @@ export default function AppointmentsCalendar({
       };
     });
   }, [appointmentsByDay, today, viewMonth]);
+  const mobileDays = useMemo(
+    () =>
+      calendarDays.filter(
+        (day) => day.isCurrentMonth && day.appointments.length > 0
+      ),
+    [calendarDays]
+  );
 
   const monthLabel = MONTH_FORMATTER.format(viewMonth);
   const canGoPrev = viewMonth.getTime() > minMonth.getTime();
@@ -729,85 +736,157 @@ export default function AppointmentsCalendar({
             Cargando calendario...
           </div>
         ) : (
-          <div className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--border)]">
-            {WEEKDAYS.map((label) => (
-              <div
-                key={label}
-                className="bg-[color:var(--surface-strong)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted)]"
-              >
-                {label}
-              </div>
-            ))}
-            {calendarDays.map((day) => {
-              const visibleAppointments = day.appointments.slice(0, 2);
-              const extraCount = day.appointments.length - visibleAppointments.length;
-              const canOpenDay = day.isCurrentMonth && day.appointments.length > 0;
-              const dayTextColor = day.isCurrentMonth
-                ? "text-[color:var(--foreground)]"
-                : "text-[color:var(--muted)]";
-              const dayBackground = day.isCurrentMonth
-                ? "bg-[color:var(--surface)]"
-                : "bg-[color:var(--surface-muted)]";
-              const dayNumberColor = day.isToday
-                ? "text-[color:var(--supabase-green)]"
-                : "text-[color:var(--muted-strong)]";
-
-              return (
-                <div
-                  key={day.dateKey}
-                  className={`min-h-[96px] px-2 py-2 text-xs ${dayBackground} ${dayTextColor} ${
-                    canOpenDay ? "cursor-pointer transition hover:bg-[color:var(--surface-strong)]" : ""
-                  }`}
-                  role={canOpenDay ? "button" : undefined}
-                  tabIndex={canOpenDay ? 0 : undefined}
-                  onClick={canOpenDay ? () => openDayModal(day) : undefined}
-                  onKeyDown={canOpenDay ? (event) => handleDayKeyDown(event, day) : undefined}
-                  aria-label={
-                    canOpenDay ? `Ver citas del ${formatLocalDate(day.date)}` : undefined
-                  }
-                >
-                  <div className="flex items-center justify-between">
-                    <span className={`text-[11px] font-semibold ${dayNumberColor}`}>
-                      {day.dayNumber}
-                    </span>
-                    {day.isToday && (
-                      <span className="h-2 w-2 rounded-full bg-[color:var(--supabase-green)] shadow-[0_0_12px_rgba(62,207,142,0.8)]" />
-                    )}
-                  </div>
-                  <div className="mt-2 space-y-1">
-                    {visibleAppointments.map((appointment) => {
-                      const timeLabel = TIME_FORMATTER.format(appointment.start);
-                      const label = getAppointmentLabel(appointment);
-                      const clientName =
-                        appointment?.clientes?.nombre || "Sin cliente";
-                      const serviceName =
-                        appointment?.servicios?.nombre || "Sin servicio";
-                      const status = appointment?.estado || "pendiente";
-                      const title = `${timeLabel} | ${label} | ${clientName} | ${serviceName} | ${status}`;
-
-                      return (
-                        <div
-                          key={appointment.uuid}
-                          className={`flex min-w-0 items-center gap-2 rounded-lg border px-2 py-1 text-[10px] ${getStatusStyle(
-                            appointment.estado
-                          )}`}
-                          title={title}
-                        >
-                          <span className="font-semibold">{timeLabel}</span>
-                          <span className="truncate">{label}</span>
+          <>
+            <div className="space-y-3 md:hidden">
+              {mobileDays.length ? (
+                mobileDays.map((day) => {
+                  const visibleAppointments = day.appointments.slice(0, 3);
+                  const extraCount =
+                    day.appointments.length - visibleAppointments.length;
+                  const dayLabel = DAY_FORMATTER.format(day.date);
+                  return (
+                    <button
+                      key={day.dateKey}
+                      className="w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-left transition hover:bg-[color:var(--surface-strong)]"
+                      onClick={() => openDayModal(day)}
+                      type="button"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                            Dia
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-[color:var(--foreground)]">
+                            {dayLabel}
+                          </p>
                         </div>
-                      );
-                    })}
-                    {extraCount > 0 && (
-                      <div className="text-[10px] text-[color:var(--muted)]">
-                        +{extraCount} mas
+                        <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)]">
+                          {day.appointments.length} citas
+                        </span>
                       </div>
-                    )}
-                  </div>
+
+                      <div className="mt-4 space-y-2">
+                        {visibleAppointments.map((appointment) => {
+                          const timeLabel = TIME_FORMATTER.format(appointment.start);
+                          const label = getAppointmentLabel(appointment);
+                          const status = appointment?.estado || "pendiente";
+                          return (
+                            <div
+                              key={appointment.uuid}
+                              className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${getStatusStyle(
+                                status
+                              )}`}
+                            >
+                              <span className="font-semibold">{timeLabel}</span>
+                              <span className="truncate">{label}</span>
+                            </div>
+                          );
+                        })}
+                        {extraCount > 0 && (
+                          <div className="text-[10px] text-[color:var(--muted)]">
+                            +{extraCount} mas
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              ) : hasAppointments ? (
+                <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+                  No hay citas para este mes.
                 </div>
-              );
-            })}
-          </div>
+              ) : null}
+            </div>
+
+            <div className="hidden md:block">
+              <div className="grid grid-cols-7 gap-px overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--border)]">
+                {WEEKDAYS.map((label) => (
+                  <div
+                    key={label}
+                    className="bg-[color:var(--surface-strong)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted)]"
+                  >
+                    {label}
+                  </div>
+                ))}
+                {calendarDays.map((day) => {
+                  const visibleAppointments = day.appointments.slice(0, 2);
+                  const extraCount =
+                    day.appointments.length - visibleAppointments.length;
+                  const canOpenDay = day.isCurrentMonth && day.appointments.length > 0;
+                  const dayTextColor = day.isCurrentMonth
+                    ? "text-[color:var(--foreground)]"
+                    : "text-[color:var(--muted)]";
+                  const dayBackground = day.isCurrentMonth
+                    ? "bg-[color:var(--surface)]"
+                    : "bg-[color:var(--surface-muted)]";
+                  const dayNumberColor = day.isToday
+                    ? "text-[color:var(--supabase-green)]"
+                    : "text-[color:var(--muted-strong)]";
+
+                  return (
+                    <div
+                      key={day.dateKey}
+                      className={`min-h-[96px] px-2 py-2 text-xs ${dayBackground} ${dayTextColor} ${
+                        canOpenDay
+                          ? "cursor-pointer transition hover:bg-[color:var(--surface-strong)]"
+                          : ""
+                      }`}
+                      role={canOpenDay ? "button" : undefined}
+                      tabIndex={canOpenDay ? 0 : undefined}
+                      onClick={canOpenDay ? () => openDayModal(day) : undefined}
+                      onKeyDown={
+                        canOpenDay ? (event) => handleDayKeyDown(event, day) : undefined
+                      }
+                      aria-label={
+                        canOpenDay
+                          ? `Ver citas del ${formatLocalDate(day.date)}`
+                          : undefined
+                      }
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[11px] font-semibold ${dayNumberColor}`}>
+                          {day.dayNumber}
+                        </span>
+                        {day.isToday && (
+                          <span className="h-2 w-2 rounded-full bg-[color:var(--supabase-green)] shadow-[0_0_12px_rgba(62,207,142,0.8)]" />
+                        )}
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        {visibleAppointments.map((appointment) => {
+                          const timeLabel = TIME_FORMATTER.format(appointment.start);
+                          const label = getAppointmentLabel(appointment);
+                          const clientName =
+                            appointment?.clientes?.nombre || "Sin cliente";
+                          const serviceName =
+                            appointment?.servicios?.nombre || "Sin servicio";
+                          const status = appointment?.estado || "pendiente";
+                          const title = `${timeLabel} | ${label} | ${clientName} | ${serviceName} | ${status}`;
+
+                          return (
+                            <div
+                              key={appointment.uuid}
+                              className={`flex min-w-0 items-center gap-2 rounded-lg border px-2 py-1 text-[10px] ${getStatusStyle(
+                                appointment.estado
+                              )}`}
+                              title={title}
+                            >
+                              <span className="font-semibold">{timeLabel}</span>
+                              <span className="truncate">{label}</span>
+                            </div>
+                          );
+                        })}
+                        {extraCount > 0 && (
+                          <div className="text-[10px] text-[color:var(--muted)]">
+                            +{extraCount} mas
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
         )}
       </div>
 

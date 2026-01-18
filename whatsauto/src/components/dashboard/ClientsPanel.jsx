@@ -245,7 +245,7 @@ export default function ClientsPanel({ clients = [], isLoading, onRefresh }) {
           <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--muted)]">
             Lista
           </p>
-          <div className="mt-4 max-h-[420px] overflow-y-auto">
+          <div className="mt-4 max-h-none overflow-visible md:max-h-[420px] md:overflow-y-auto">
             {isLoading ? (
               <p className="py-3 text-sm text-[color:var(--muted)]">
                 Cargando clientes...
@@ -351,54 +351,103 @@ export default function ClientsPanel({ clients = [], isLoading, onRefresh }) {
           ) : historyError ? (
             <p className="mt-4 text-sm text-rose-200">{historyError}</p>
           ) : history.length ? (
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[520px] text-left text-sm">
-                <thead className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
-                  <tr>
-                    <th className="pb-3" scope="col">
-                      Fecha
-                    </th>
-                    <th className="pb-3" scope="col">
-                      Servicio
-                    </th>
-                    <th className="pb-3" scope="col">
-                      Empleado
-                    </th>
-                    <th className="pb-3" scope="col">
-                      Estado
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((appointment) => (
-                    <tr
-                      key={appointment.uuid}
-                      className="border-t border-[color:var(--border)]"
-                    >
-                      <td className="py-3 text-[color:var(--muted-strong)]">
-                        {formatDateTime(appointment.tiempo_inicio)}
-                      </td>
-                      <td className="py-3">
-                        <div className="font-semibold text-[color:var(--foreground)]">
+            <>
+              <div className="mt-4 space-y-3 md:hidden">
+                {history.map((appointment) => (
+                  <div
+                    key={appointment.uuid}
+                    className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                          Fecha
+                        </p>
+                        <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                          {formatDateTime(appointment.tiempo_inicio)}
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)]">
+                        {appointment.estado || "pendiente"}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                          Servicio
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-[color:var(--foreground)]">
                           {appointment.servicios?.nombre || "Sin servicio"}
-                        </div>
-                        <div className="text-xs text-[color:var(--muted)]">
+                        </p>
+                        <p className="text-xs text-[color:var(--muted)]">
                           {formatDuration(appointment.servicios?.duracion)}
                           {" · "}
                           {formatPrice(appointment.servicios?.precio)}
-                        </div>
-                      </td>
-                      <td className="py-3 text-[color:var(--muted-strong)]">
-                        {appointment.empleados?.nombre || "Sin empleado"}
-                      </td>
-                      <td className="py-3 text-[color:var(--muted-strong)]">
-                        {appointment.estado || "pendiente"}
-                      </td>
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                          Empleado
+                        </p>
+                        <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                          {appointment.empleados?.nombre || "Sin empleado"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 hidden overflow-x-auto md:block">
+                <table className="w-full min-w-[520px] text-left text-sm">
+                  <thead className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                    <tr>
+                      <th className="pb-3" scope="col">
+                        Fecha
+                      </th>
+                      <th className="pb-3" scope="col">
+                        Servicio
+                      </th>
+                      <th className="pb-3" scope="col">
+                        Empleado
+                      </th>
+                      <th className="pb-3" scope="col">
+                        Estado
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {history.map((appointment) => (
+                      <tr
+                        key={appointment.uuid}
+                        className="border-t border-[color:var(--border)]"
+                      >
+                        <td className="py-3 text-[color:var(--muted-strong)]">
+                          {formatDateTime(appointment.tiempo_inicio)}
+                        </td>
+                        <td className="py-3">
+                          <div className="font-semibold text-[color:var(--foreground)]">
+                            {appointment.servicios?.nombre || "Sin servicio"}
+                          </div>
+                          <div className="text-xs text-[color:var(--muted)]">
+                            {formatDuration(appointment.servicios?.duracion)}
+                            {" · "}
+                            {formatPrice(appointment.servicios?.precio)}
+                          </div>
+                        </td>
+                        <td className="py-3 text-[color:var(--muted-strong)]">
+                          {appointment.empleados?.nombre || "Sin empleado"}
+                        </td>
+                        <td className="py-3 text-[color:var(--muted-strong)]">
+                          {appointment.estado || "pendiente"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           ) : (
             <p className="mt-4 text-sm text-[color:var(--muted)]">
               No hay citas registradas para este cliente.

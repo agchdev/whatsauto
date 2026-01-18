@@ -137,14 +137,17 @@ export default function Sidebar({
   employeeRole,
   employeeEmail,
   isExpanded,
+  isMobileOpen = false,
+  onMobileClose,
   onNavigate,
   onToggle,
   onPaletteChange,
   paletteKey,
   onSignOut,
 }) {
-  const containerPadding = isExpanded ? "p-6" : "px-4 py-6";
-  const widthClass = isExpanded ? "w-72" : "w-20";
+  const containerPadding = isExpanded ? "md:p-6" : "md:px-4 md:py-6";
+  const widthClass = isExpanded ? "md:w-72" : "md:w-20";
+  const mobileTransform = isMobileOpen ? "translate-x-0" : "-translate-x-full";
   const [settingsOpen, setSettingsOpen] = useState(true);
 
   const handleToggleSettings = () => {
@@ -152,20 +155,28 @@ export default function Sidebar({
   };
 
   return (
-    <aside
-      className={`fixed left-0 top-0 z-40 flex h-full flex-col rounded-none rounded-r-3xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_24px_70px_-60px_rgba(0,0,0,0.9)] transition-[width] duration-300 ${widthClass} ${containerPadding}`}
-    >
+    <>
+      <div
+        className={`fixed inset-0 z-30 bg-black/60 transition-opacity md:hidden ${
+          isMobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={onMobileClose}
+      />
+      <aside
+        className={`fixed left-0 top-0 z-40 flex h-full flex-col rounded-none rounded-r-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_24px_70px_-60px_rgba(0,0,0,0.9)] transition-[width,transform] duration-300 w-72 ${widthClass} ${containerPadding} ${mobileTransform} md:translate-x-0`}
+      >
       <div
         className={`flex items-center justify-between gap-3 ${
-          isExpanded ? "" : "flex-col"
+          isExpanded ? "" : "md:flex-col"
         }`}
       >
-        <div className={`flex items-center gap-3 ${isExpanded ? "" : "flex-col"}`}>
+        <div
+          className={`flex items-center gap-3 ${isExpanded ? "" : "md:flex-col"}`}
+        >
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)]">
             <LogoIcon className="h-5 w-5 text-[color:var(--supabase-green)]" />
           </div>
-          {isExpanded && (
-            <div>
+          <div className={`${isExpanded ? "md:block" : "md:hidden"} block`}>
               <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--muted)]">
                 WhatsAuto
               </p>
@@ -173,7 +184,6 @@ export default function Sidebar({
                 Panel
               </p>
             </div>
-          )}
         </div>
         <button
           aria-label={isExpanded ? "Contraer menu" : "Expandir menu"}
@@ -187,7 +197,7 @@ export default function Sidebar({
 
       <nav
         className={`mt-8 flex flex-1 flex-col gap-2 overflow-y-auto ${
-          isExpanded ? "" : "items-center"
+          isExpanded ? "md:items-stretch" : "md:items-center"
         }`}
       >
         {NAV_ITEMS.map((item) => {
@@ -197,8 +207,8 @@ export default function Sidebar({
             <button
               key={item.key}
               aria-current={isActive ? "page" : undefined}
-              className={`flex w-full items-center rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                isExpanded ? "justify-between" : "justify-center"
+              className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                isExpanded ? "md:justify-between" : "md:justify-center"
               } ${
                 isActive
                   ? "bg-[color:var(--surface-strong)] text-[color:var(--foreground)] shadow-[0_18px_40px_-30px_rgba(0,0,0,0.8)]"
@@ -208,12 +218,22 @@ export default function Sidebar({
               title={!isExpanded ? item.label : undefined}
               type="button"
             >
-              <span className={`flex items-center gap-3 ${isExpanded ? "" : "justify-center"}`}>
+              <span
+                className={`flex items-center gap-3 ${
+                  isExpanded ? "" : "md:justify-center"
+                }`}
+              >
                 <ItemIcon className="h-5 w-5" />
-                {isExpanded && <span>{item.label}</span>}
+                <span className={`${isExpanded ? "md:inline" : "md:hidden"} inline`}>
+                  {item.label}
+                </span>
               </span>
-              {isActive && isExpanded && (
-                <span className="h-2 w-2 rounded-full bg-[color:var(--supabase-green)] shadow-[0_0_12px_rgba(62,207,142,0.9)]" />
+              {isActive && (
+                <span
+                  className={`h-2 w-2 rounded-full bg-[color:var(--supabase-green)] shadow-[0_0_12px_rgba(62,207,142,0.9)] ${
+                    isExpanded ? "" : "md:hidden"
+                  }`}
+                />
               )}
             </button>
           );
@@ -221,11 +241,11 @@ export default function Sidebar({
       </nav>
 
       <div className="mt-8 border-t border-[color:var(--border)] pt-6">
-        <div className={`${isExpanded ? "" : "flex flex-col items-center"}`}>
+        <div className={`${isExpanded ? "" : "md:flex md:flex-col md:items-center"}`}>
           <button
             aria-expanded={settingsOpen}
             className={`flex w-full items-center rounded-2xl border border-[color:var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] ${
-              isExpanded ? "justify-between" : "justify-center"
+              isExpanded ? "md:justify-between" : "md:justify-center"
             }`}
             onClick={handleToggleSettings}
             title="Ajustes"
@@ -233,35 +253,37 @@ export default function Sidebar({
           >
             <span className="flex items-center gap-2">
               <SettingsIcon className="h-4 w-4" />
-              {isExpanded && <span>Ajustes</span>}
+              <span className={`${isExpanded ? "md:inline" : "md:hidden"} inline`}>
+                Ajustes
+              </span>
             </span>
-            {isExpanded && (
-              <ChevronIcon
-                className={`h-4 w-4 transition ${
-                  settingsOpen ? "rotate-180" : ""
-                }`}
-              />
-            )}
+            <ChevronIcon
+              className={`h-4 w-4 transition ${
+                settingsOpen ? "rotate-180" : ""
+              } ${isExpanded ? "" : "md:hidden"}`}
+            />
           </button>
 
           {settingsOpen && (
             <div
               className={`mt-4 flex flex-wrap gap-3 ${
-                isExpanded ? "" : "flex-col items-center"
+                isExpanded ? "" : "md:flex-col md:items-center"
               }`}
             >
-              {isExpanded && (
-                <p className="w-full text-xs uppercase tracking-[0.3em] text-[color:var(--muted)]">
-                  Paletas
-                </p>
-              )}
+              <p
+                className={`w-full text-xs uppercase tracking-[0.3em] text-[color:var(--muted)] ${
+                  isExpanded ? "md:block" : "md:hidden"
+                } block`}
+              >
+                Paletas
+              </p>
               {PALETTES.map((palette) => {
                 const isActive = palette.key === paletteKey;
                 return (
                   <button
                     key={palette.key}
                     className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition ${
-                      isExpanded ? "" : "justify-center px-2"
+                      isExpanded ? "" : "md:justify-center md:px-2"
                     } ${
                       isActive
                         ? "border-[color:var(--supabase-green)] text-[color:var(--supabase-green)]"
@@ -273,11 +295,15 @@ export default function Sidebar({
                   >
                     <span
                       className={`h-3 w-3 rounded-full ${
-                        isExpanded ? "" : "h-4 w-4"
+                        isExpanded ? "" : "md:h-4 md:w-4"
                       }`}
                       style={{ backgroundColor: palette.accent }}
                     />
-                    {isExpanded && <span>{palette.label}</span>}
+                    <span
+                      className={`${isExpanded ? "md:inline" : "md:hidden"} inline`}
+                    >
+                      {palette.label}
+                    </span>
                   </button>
                 );
               })}
@@ -287,8 +313,7 @@ export default function Sidebar({
       </div>
 
       <div className="mt-auto border-t border-[color:var(--border)] pt-6">
-        {isExpanded ? (
-          <div>
+        <div className={`${isExpanded ? "md:block" : "md:hidden"} block`}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-[color:var(--foreground)]">
@@ -308,28 +333,31 @@ export default function Sidebar({
             </div>
             <p className="mt-3 text-xs text-[color:var(--muted)]">{employeeEmail}</p>
           </div>
-        ) : (
-          <div className="flex flex-col items-center gap-4">
-            <button
-              aria-label={employeeName}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)] text-[color:var(--muted-strong)]"
-              title={employeeName}
-              type="button"
-            >
-              <UserIcon className="h-5 w-5" />
-            </button>
-            <button
-              aria-label="Salir"
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:rgb(var(--supabase-green-rgb)/0.5)] bg-[color:var(--surface-strong)] text-[color:var(--supabase-green)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green-bright)]"
-              onClick={onSignOut}
-              title="Salir"
-              type="button"
-            >
-              <LogoutIcon className="h-5 w-5" />
-            </button>
-          </div>
-        )}
+        <div
+          className={`flex flex-col items-center gap-4 ${
+            isExpanded ? "hidden" : "hidden md:flex"
+          }`}
+        >
+          <button
+            aria-label={employeeName}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)] text-[color:var(--muted-strong)]"
+            title={employeeName}
+            type="button"
+          >
+            <UserIcon className="h-5 w-5" />
+          </button>
+          <button
+            aria-label="Salir"
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:rgb(var(--supabase-green-rgb)/0.5)] bg-[color:var(--surface-strong)] text-[color:var(--supabase-green)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green-bright)]"
+            onClick={onSignOut}
+            title="Salir"
+            type="button"
+          >
+            <LogoutIcon className="h-5 w-5" />
+          </button>
+        </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

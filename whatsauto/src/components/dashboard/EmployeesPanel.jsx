@@ -653,8 +653,100 @@ export default function EmployeesPanel({
         </p>
       )}
 
+      <div className="mt-6 space-y-3 md:hidden">
+        {isLoading ? (
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+            Cargando empleados...
+          </div>
+        ) : employees.length ? (
+          employees.map((employee) => {
+            const isSelected = selectedEmployee?.uuid === employee.uuid;
+            const statusStyles =
+              employee.activo === false
+                ? "border-rose-400/40 text-rose-200"
+                : "border-emerald-300/40 text-emerald-200";
 
-      <div className="mt-6 overflow-x-auto">
+            return (
+              <div
+                key={employee.uuid}
+                className={`rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 ${
+                  isSelected ? "ring-1 ring-[color:var(--supabase-green)]" : ""
+                }`}
+              >
+                <button
+                  className="w-full text-left"
+                  onClick={() => handleSelectEmployee(employee)}
+                  type="button"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-[color:var(--foreground)]">
+                        {employee.nombre}
+                      </p>
+                      {employee.dni && (
+                        <p className="text-xs text-[color:var(--muted)]">
+                          DNI {employee.dni}
+                        </p>
+                      )}
+                    </div>
+                    {isSelected && (
+                      <span className="mt-1 h-2 w-2 rounded-full bg-[color:var(--supabase-green)] shadow-[0_0_12px_rgba(62,207,142,0.9)]" />
+                    )}
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                        Contacto
+                      </p>
+                      <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                        {employee.correo || "Sin correo"}
+                      </p>
+                      <p className="text-xs text-[color:var(--muted)]">
+                        {employee.telefono || "Sin telefono"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                        Rol
+                      </p>
+                      <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                        {employee.role || "staff"}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                  <span
+                    className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${statusStyles}`}
+                  >
+                    {employee.activo === false ? "Inactivo" : "Activo"}
+                  </span>
+                  {canManage && (
+                    <button
+                      className="rounded-full border border-[color:var(--border)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleEdit(employee);
+                      }}
+                      type="button"
+                    >
+                      Editar
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+            No hay empleados registrados por ahora.
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6 hidden overflow-x-auto md:block">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
             <tr>
@@ -739,7 +831,7 @@ export default function EmployeesPanel({
                       className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${
                         employee.activo === false
                           ? "border-rose-400/40 text-rose-200"
-                        : "border-emerald-300/40 text-emerald-200"
+                          : "border-emerald-300/40 text-emerald-200"
                       }`}
                     >
                       {employee.activo === false ? "Inactivo" : "Activo"}

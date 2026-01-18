@@ -215,8 +215,89 @@ export default function ServicesPanel({
         </p>
       )}
 
+      <div className="mt-6 space-y-3 md:hidden">
+        {isLoading ? (
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+            Cargando servicios...
+          </div>
+        ) : services.length ? (
+          services.map((service) => {
+            const assignedEmployees = getAssignedEmployees(service);
+            const employeeNames = assignedEmployees
+              .map((employee) => employee.nombre)
+              .join(", ");
+            const employeeEmails = assignedEmployees
+              .map((employee) => employee.correo)
+              .filter(Boolean)
+              .join(", ");
 
-      <div className="mt-6 overflow-x-auto">
+            return (
+              <div
+                key={service.uuid}
+                className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                      Servicio
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-[color:var(--foreground)]">
+                      {service.nombre}
+                    </p>
+                  </div>
+                  {canManage && (
+                    <button
+                      className="rounded-full border border-[color:var(--border)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+                      onClick={() => handleEdit(service)}
+                      type="button"
+                    >
+                      Editar
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                      Duracion
+                    </p>
+                    <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                      {formatDuration(service.duracion)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                      Precio
+                    </p>
+                    <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                      {formatPrice(service.precio)}
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                      Empleado asignado
+                    </p>
+                    <p className="mt-1 text-sm text-[color:var(--foreground)]">
+                      {employeeNames || "Sin asignar"}
+                    </p>
+                    {employeeEmails && (
+                      <p className="text-xs text-[color:var(--muted)]">
+                        {employeeEmails}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+            No hay servicios registrados por ahora.
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6 hidden overflow-x-auto md:block">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
             <tr>

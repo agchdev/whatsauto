@@ -37,7 +37,70 @@ export default function UpcomingAppointmentsTable({ appointments, isLoading }) {
         </span>
       </div>
 
-      <div className="mt-6 overflow-x-auto">
+      <div className="mt-6 space-y-3 md:hidden">
+        {isLoading ? (
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+            Cargando citas...
+          </div>
+        ) : hasAppointments ? (
+          paginatedAppointments.map((appointment) => (
+            <div
+              key={appointment.uuid}
+              className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                    Cliente
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-[color:var(--foreground)]">
+                    {appointment.clientes?.nombre || "Sin cliente"}
+                  </p>
+                  <p className="text-xs text-[color:var(--muted)]">
+                    {appointment.titulo || "Sin titulo"}
+                  </p>
+                </div>
+                <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)]">
+                  {appointment.estado || "pendiente"}
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                    Servicio
+                  </p>
+                  <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                    {appointment.servicios?.nombre || "Sin servicio"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                    Inicio
+                  </p>
+                  <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                    {formatDateTime(appointment.tiempo_inicio)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                    Fin
+                  </p>
+                  <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                    {formatDateTime(appointment.tiempo_fin)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
+            No hay citas futuras por ahora.
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6 hidden overflow-x-auto md:block">
         <table className="w-full min-w-[560px] text-left text-sm">
           <thead className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
             <tr>
