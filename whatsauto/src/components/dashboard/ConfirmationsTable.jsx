@@ -106,10 +106,10 @@ export default function ConfirmationsTable({ confirmations = [], isLoading }) {
                     <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
                       Cliente
                     </p>
-                    <p className="mt-1 text-sm font-semibold text-[color:var(--foreground)]">
+                    <p className="mt-1 break-words text-sm font-semibold text-[color:var(--foreground)]">
                       {clientName}
                     </p>
-                    <p className="text-xs text-[color:var(--muted)]">
+                    <p className="break-words text-xs text-[color:var(--muted)]">
                       {appointment?.titulo || serviceName}
                     </p>
                   </div>
@@ -117,7 +117,7 @@ export default function ConfirmationsTable({ confirmations = [], isLoading }) {
                     <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
                       Empleado
                     </p>
-                    <p className="mt-1 text-sm text-[color:var(--muted-strong)]">
+                    <p className="mt-1 break-words text-sm text-[color:var(--muted-strong)]">
                       {employeeName}
                     </p>
                   </div>

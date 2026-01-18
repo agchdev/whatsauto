@@ -773,12 +773,16 @@ export default function AppointmentsCalendar({
                           return (
                             <div
                               key={appointment.uuid}
-                              className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${getStatusStyle(
+                              className={`flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-xs ${getStatusStyle(
                                 status
                               )}`}
                             >
-                              <span className="font-semibold">{timeLabel}</span>
-                              <span className="truncate">{label}</span>
+                              <span className="shrink-0 font-semibold">
+                                {timeLabel}
+                              </span>
+                              <span className="min-w-0 flex-1 truncate">
+                                {label}
+                              </span>
                             </div>
                           );
                         })}
@@ -946,7 +950,7 @@ export default function AppointmentsCalendar({
                       {status}
                     </span>
                   </div>
-                  <div className="mt-1 text-xs text-[color:var(--muted-strong)]">
+                  <div className="mt-1 break-words text-xs text-[color:var(--muted-strong)]">
                     {label} · {clientName} · {serviceName} · {employeeName}
                   </div>
                 </button>
