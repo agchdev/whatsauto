@@ -46,7 +46,6 @@ export default function ServicesPanel({
   canManage,
   isLoading,
   onRefresh,
-  onCreated,
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [formState, setFormState] = useState(emptyForm);
@@ -147,7 +146,6 @@ export default function ServicesPanel({
       companyId,
     };
 
-    const isNewService = !editingService;
     const result = editingService
       ? await updateServiceWithAssignment({
           serviceId: editingService.uuid,
@@ -171,15 +169,6 @@ export default function ServicesPanel({
         ? "Servicio actualizado correctamente."
         : "Servicio creado correctamente.",
     });
-
-    if (isNewService) {
-      onCreated?.({
-        title: "Servicio creado",
-        message: trimmedName
-          ? `${trimmedName} listo para usar.`
-          : "Servicio creado correctamente.",
-      });
-    }
 
     if (editingService) {
       handleCancel();

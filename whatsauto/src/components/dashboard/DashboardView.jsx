@@ -178,7 +178,6 @@ export default function DashboardView({
               companyId={employee.companyId}
               employees={employees}
               isLoading={dataLoading}
-              onCreated={handleCreated}
               onRefresh={onRefreshData}
             />
           ) : isClientsView ? (
@@ -193,7 +192,6 @@ export default function DashboardView({
               companyId={employee.companyId}
               employees={employees}
               isLoading={dataLoading}
-              onCreated={handleCreated}
               onRefresh={onRefreshData}
               services={services}
             />
@@ -202,7 +200,6 @@ export default function DashboardView({
               clients={clients}
               companyId={employee.companyId}
               isLoading={dataLoading}
-              onCreated={handleCreated}
               onRefresh={onRefreshData}
               waitlist={waitlist}
             />
