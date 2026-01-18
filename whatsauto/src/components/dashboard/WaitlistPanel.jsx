@@ -101,6 +101,7 @@ export default function WaitlistPanel({
   companyId,
   isLoading,
   onRefresh,
+  onCreated,
 }) {
   const [waitlistEntries, setWaitlistEntries] = useState(waitlist);
   const [appointmentOptions, setAppointmentOptions] = useState([]);
@@ -302,6 +303,7 @@ export default function WaitlistPanel({
       id_cliente: formState.clientId,
     };
 
+    const isCreatingEntry = !editingEntry;
     const query = editingEntry
       ? client
           .from("esperas")
@@ -344,6 +346,13 @@ export default function WaitlistPanel({
         ? "Espera actualizada correctamente."
         : "Cliente anadido a la lista de espera.",
     });
+
+    if (isCreatingEntry) {
+      onCreated?.({
+        title: "Lista de espera",
+        message: "Cliente anadido a la lista de espera.",
+      });
+    }
     setIsSaving(false);
     closeModal();
     onRefresh?.();

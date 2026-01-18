@@ -85,6 +85,25 @@ export const PALETTES = [
     muted: "#b7a0a0",
     mutedStrong: "#e0c9c9",
   },
+  {
+    key: "clara",
+    label: "Clara",
+    accent: "#2f9b6b",
+    accentRgb: "47 155 107",
+    accentDark: "#1f774f",
+    accentBright: "#46c08a",
+    glow: "#e7f4ed",
+    base: "#e4efe8",
+    baseRgb: "228 239 232",
+    background: "#f7f9f7",
+    foreground: "#18261f",
+    surface: "#ffffff",
+    surfaceStrong: "#f0f5f1",
+    surfaceMuted: "#eef3ef",
+    border: "#d6e0da",
+    muted: "#6b7c73",
+    mutedStrong: "#47584f",
+  },
 ];
 
 export const DEFAULT_PALETTE_KEY = "verde";

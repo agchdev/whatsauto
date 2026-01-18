@@ -138,6 +138,7 @@ export default function AppointmentsCalendar({
   currentEmployee,
   companyId,
   isLoading = false,
+  onCreated,
   onRefresh,
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -614,6 +615,11 @@ export default function AppointmentsCalendar({
     setFormStatus({
       type: "success",
       message: "Cita creada. Confirmacion generada.",
+    });
+
+    onCreated?.({
+      title: "Cita creada",
+      message: "Confirmacion generada.",
     });
     setIsSaving(false);
     onRefresh?.();

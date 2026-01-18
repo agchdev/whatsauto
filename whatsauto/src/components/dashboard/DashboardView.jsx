@@ -12,6 +12,7 @@ import AppointmentsCalendar from "./AppointmentsCalendar";
 import CompanyHeader from "./CompanyHeader";
 import ConfirmationsTable from "./ConfirmationsTable";
 import ClientsPanel from "./ClientsPanel";
+import CreationSuccessModal from "./CreationSuccessModal";
 import EmployeesPanel from "./EmployeesPanel";
 import Sidebar from "./Sidebar";
 import ServicesPanel from "./ServicesPanel";
@@ -41,6 +42,12 @@ export default function DashboardView({
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [paletteKey, setPaletteKey] = useState(() => loadStoredPalette());
+  const [creationModal, setCreationModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    key: 0,
+  });
 
   useEffect(() => {
     setActiveKey(initialActiveKey);
@@ -64,6 +71,27 @@ export default function DashboardView({
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
+
+  useEffect(() => {
+    if (!creationModal.isOpen) return;
+    const timer = setTimeout(() => {
+      setCreationModal((prev) => ({ ...prev, isOpen: false }));
+    }, 2200);
+    return () => clearTimeout(timer);
+  }, [creationModal.isOpen, creationModal.key]);
+
+  const handleCreated = ({ title, message } = {}) => {
+    setCreationModal((prev) => ({
+      isOpen: true,
+      title: title || "Listo",
+      message: message || "Creado correctamente.",
+      key: prev.key + 1,
+    }));
+  };
+
+  const closeCreationModal = () => {
+    setCreationModal((prev) => ({ ...prev, isOpen: false }));
+  };
 
   const handleToggleSidebar = () => {
     setSidebarExpanded((prev) => !prev);
@@ -150,6 +178,7 @@ export default function DashboardView({
               companyId={employee.companyId}
               employees={employees}
               isLoading={dataLoading}
+              onCreated={handleCreated}
               onRefresh={onRefreshData}
             />
           ) : isClientsView ? (
@@ -164,6 +193,7 @@ export default function DashboardView({
               companyId={employee.companyId}
               employees={employees}
               isLoading={dataLoading}
+              onCreated={handleCreated}
               onRefresh={onRefreshData}
               services={services}
             />
@@ -172,6 +202,7 @@ export default function DashboardView({
               clients={clients}
               companyId={employee.companyId}
               isLoading={dataLoading}
+              onCreated={handleCreated}
               onRefresh={onRefreshData}
               waitlist={waitlist}
             />
@@ -190,6 +221,7 @@ export default function DashboardView({
                 currentEmployee={employee}
                 companyId={employee.companyId}
                 isLoading={dataLoading}
+                onCreated={handleCreated}
                 onRefresh={onRefreshData}
               />
               <ConfirmationsTable
@@ -214,6 +246,13 @@ export default function DashboardView({
           )}
         </section>
       </div>
+
+      <CreationSuccessModal
+        isOpen={creationModal.isOpen}
+        message={creationModal.message}
+        onClose={closeCreationModal}
+        title={creationModal.title}
+      />
     </div>
   );
 }

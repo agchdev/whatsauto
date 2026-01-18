@@ -156,6 +156,8 @@ export default function ConfirmationPage({
     BUTTON_VARIANTS[config.confirmVariant] || BUTTON_VARIANTS.primary;
   const rejectClass =
     BUTTON_VARIANTS[config.rejectVariant] || BUTTON_VARIANTS.danger;
+  const isAppointmentConfirmed =
+    status.state === "confirmed" && tipo === "confirmar";
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_var(--theme-glow),_var(--background)_55%,_var(--theme-base)_100%)]">
@@ -176,6 +178,39 @@ export default function ConfirmationPage({
           <p className="mt-2 text-sm text-[color:var(--muted)]">
             {status.message}
           </p>
+
+          {isAppointmentConfirmed && (
+            <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[color:rgb(var(--supabase-green-rgb)/0.35)] bg-[color:rgb(var(--supabase-green-rgb)/0.08)] px-4 py-3 text-sm text-[color:var(--muted-strong)] motion-safe:animate-[confirm-pop_0.5s_ease-out_both]">
+              <span className="relative flex h-11 w-11 items-center justify-center rounded-full border border-[color:rgb(var(--supabase-green-rgb)/0.5)] bg-[color:rgb(var(--supabase-green-rgb)/0.12)]">
+                <span className="absolute inset-0 rounded-full border border-[color:rgb(var(--supabase-green-rgb)/0.6)] motion-safe:animate-[confirm-ring_0.9s_ease-out_both]" />
+                <svg
+                  className="h-5 w-5 text-[color:var(--supabase-green-bright)]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    className="motion-safe:animate-[confirm-draw_0.6s_ease-out_both]"
+                    d="M5 13l4 4L19 7"
+                    strokeDasharray="24"
+                    strokeDashoffset="24"
+                  />
+                </svg>
+              </span>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                  Confirmacion lista
+                </p>
+                <p className="text-sm font-semibold text-[color:var(--foreground)]">
+                  Cita confirmada
+                </p>
+              </div>
+            </div>
+          )}
 
           {appointment && (
             <div className="mt-6 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-5 text-sm text-[color:var(--muted-strong)]">

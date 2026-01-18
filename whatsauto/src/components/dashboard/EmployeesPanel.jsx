@@ -122,6 +122,7 @@ export default function EmployeesPanel({
   isLoading,
   onRefresh,
   companyId,
+  onCreated,
 }) {
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -365,6 +366,7 @@ export default function EmployeesPanel({
       hora_descanso_fin: scheduleForm.hora_descanso_fin || null,
     };
 
+    const isCreatingSchedule = !scheduleEditingId;
     const response = scheduleEditingId
       ? await client.from("horarios").update(payload).eq("uuid", scheduleEditingId)
       : await client.from("horarios").insert(payload);
@@ -381,6 +383,13 @@ export default function EmployeesPanel({
     await loadEmployeeDetails(selectedEmployee);
     setScheduleSaving(false);
     setIsScheduleModalOpen(false);
+
+    if (isCreatingSchedule) {
+      onCreated?.({
+        title: "Horario creado",
+        message: "Horario guardado correctamente.",
+      });
+    }
   };
 
   const handleVacationSubmit = async (event) => {
@@ -432,6 +441,7 @@ export default function EmployeesPanel({
       fecha_fin: vacationForm.fecha_fin,
     };
 
+    const isCreatingVacation = !vacationEditingId;
     const response = vacationEditingId
       ? await client
           .from("vacaciones")
@@ -451,6 +461,13 @@ export default function EmployeesPanel({
     await loadEmployeeDetails(selectedEmployee);
     setVacationSaving(false);
     setIsVacationModalOpen(false);
+
+    if (isCreatingVacation) {
+      onCreated?.({
+        title: "Vacaciones creadas",
+        message: "Vacaciones registradas correctamente.",
+      });
+    }
   };
 
   const handleScheduleDelete = async (item) => {
@@ -585,6 +602,7 @@ export default function EmployeesPanel({
       active: formState.active === "true",
     };
 
+    const isCreateAction = isCreating;
     const result = isCreating
       ? await createEmployeeProfile(payload)
       : await updateEmployeeProfile({
@@ -609,6 +627,15 @@ export default function EmployeesPanel({
         ? "Empleado creado correctamente."
         : "Empleado actualizado correctamente.",
     });
+
+    if (isCreateAction) {
+      onCreated?.({
+        title: "Empleado creado",
+        message: trimmedName
+          ? `${trimmedName} ya esta en el equipo.`
+          : "Empleado creado correctamente.",
+      });
+    }
     setIsSaving(false);
     handleCancel();
     onRefresh?.();
