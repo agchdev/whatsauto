@@ -101,6 +101,25 @@ const formatLocalDate = (date) =>
 const formatLocalTime = (date) =>
   `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 
+const getWeekdayNumber = (date) => ((date.getDay() + 6) % 7) + 1;
+
+const parseTimeMinutes = (value) => {
+  if (!value) return null;
+  const [hour, minute] = String(value).split(":");
+  const parsedHour = Number(hour);
+  const parsedMinute = Number(minute || "0");
+  if (!Number.isFinite(parsedHour) || !Number.isFinite(parsedMinute)) return null;
+  return parsedHour * 60 + parsedMinute;
+};
+
+const isOverlappingRange = (start, end, rangeStart, rangeEnd) =>
+  start < rangeEnd && end > rangeStart;
+
+const normalizeDateOnly = (value) => {
+  if (!value) return "";
+  return String(value).split("T")[0];
+};
+
 const normalizeStatus = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : "";
 
@@ -538,6 +557,16 @@ export default function AppointmentsCalendar({
     const end = new Date(start.getTime());
     end.setMinutes(end.getMinutes() + selectedDuration);
 
+    const startDateKey = formatLocalDate(start);
+    const endDateKey = formatLocalDate(end);
+    if (startDateKey !== endDateKey) {
+      setFormStatus({
+        type: "error",
+        message: "La cita debe terminar el mismo dia.",
+      });
+      return;
+    }
+
     let supabase;
     try {
       supabase = getSupabaseClient();
@@ -553,6 +582,124 @@ export default function AppointmentsCalendar({
     }
 
     setIsSaving(true);
+    setFormStatus({ type: "loading", message: "Validando disponibilidad..." });
+
+    const weekdayNumber = getWeekdayNumber(start);
+    const startMinutes = start.getHours() * 60 + start.getMinutes();
+    const endMinutes = end.getHours() * 60 + end.getMinutes();
+
+    const [scheduleResponse, vacationsResponse] = await Promise.all([
+      supabase
+        .from("horarios")
+        .select("hora_entrada,hora_salida,hora_descanso_inicio,hora_descanso_fin")
+        .eq("id_empresa", companyId)
+        .eq("id_empleado", formState.employeeId)
+        .eq("dia_semana", weekdayNumber),
+      supabase
+        .from("vacaciones")
+        .select("fecha_inicio,fecha_fin")
+        .eq("id_empresa", companyId)
+        .eq("id_empleado", formState.employeeId),
+    ]);
+
+    if (scheduleResponse.error) {
+      setFormStatus({
+        type: "error",
+        message: buildErrorMessage(
+          "No pudimos validar el horario del empleado.",
+          scheduleResponse.error
+        ),
+      });
+      setIsSaving(false);
+      return;
+    }
+
+    if (vacationsResponse.error) {
+      setFormStatus({
+        type: "error",
+        message: buildErrorMessage(
+          "No pudimos validar las vacaciones del empleado.",
+          vacationsResponse.error
+        ),
+      });
+      setIsSaving(false);
+      return;
+    }
+
+    const scheduleEntries = scheduleResponse.data || [];
+    if (!scheduleEntries.length) {
+      setFormStatus({
+        type: "error",
+        message: "El empleado no tiene horario registrado para este dia.",
+      });
+      setIsSaving(false);
+      return;
+    }
+
+    const vacationEntries = vacationsResponse.data || [];
+    const isOnVacation = vacationEntries.some((vacation) => {
+      const startDate = normalizeDateOnly(vacation.fecha_inicio);
+      const endDate = normalizeDateOnly(vacation.fecha_fin) || startDate;
+      if (!startDate) return false;
+      return startDateKey >= startDate && startDateKey <= endDate;
+    });
+
+    if (isOnVacation) {
+      setFormStatus({
+        type: "error",
+        message: "El empleado esta de vacaciones en esa fecha.",
+      });
+      setIsSaving(false);
+      return;
+    }
+
+    let hasMatchingWindow = false;
+    let hasBreakConflict = false;
+    let hasAvailableWindow = false;
+
+    for (const schedule of scheduleEntries) {
+      const entryMinutes = parseTimeMinutes(schedule.hora_entrada);
+      const exitMinutes = parseTimeMinutes(schedule.hora_salida);
+      if (
+        entryMinutes === null ||
+        exitMinutes === null ||
+        exitMinutes <= entryMinutes
+      ) {
+        continue;
+      }
+      if (startMinutes < entryMinutes || endMinutes > exitMinutes) {
+        continue;
+      }
+
+      hasMatchingWindow = true;
+
+      const breakStart = parseTimeMinutes(schedule.hora_descanso_inicio);
+      const breakEnd = parseTimeMinutes(schedule.hora_descanso_fin);
+      if (
+        breakStart !== null &&
+        breakEnd !== null &&
+        breakEnd > breakStart &&
+        isOverlappingRange(startMinutes, endMinutes, breakStart, breakEnd)
+      ) {
+        hasBreakConflict = true;
+        continue;
+      }
+
+      hasAvailableWindow = true;
+      break;
+    }
+
+    if (!hasAvailableWindow) {
+      setFormStatus({
+        type: "error",
+        message: hasMatchingWindow && hasBreakConflict
+          ? "La cita coincide con el descanso del empleado."
+          : "La cita esta fuera del horario de trabajo del empleado.",
+      });
+      setIsSaving(false);
+      return;
+    }
+
     setFormStatus({ type: "loading", message: "Creando cita..." });
     setCreatedLink("");
     setCopyStatus("");
