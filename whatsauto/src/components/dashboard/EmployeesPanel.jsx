@@ -5,15 +5,9 @@ import {
   createEmployeeProfile,
   updateEmployeeProfile,
 } from "../../lib/employeesData";
-import { getSupabaseClient } from "../../lib/supabaseClient";
 
 const WEEKDAY_LABELS = ["", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 const DATE_FORMATTER = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium" });
-
-const buildErrorMessage = (fallback, error) => {
-  const details = error?.message || error?.details || "";
-  return details ? `${fallback} (${details})` : fallback;
-};
 
 const parseDateValue = (value) => {
   if (!value) return null;
@@ -117,6 +111,7 @@ const ModalShell = ({ isOpen, onClose, children, size = "max-w-2xl" }) => {
 };
 
 export default function EmployeesPanel({
+  accessToken,
   employees = [],
   canManage,
   isLoading,
@@ -172,14 +167,6 @@ export default function EmployeesPanel({
     setStatus({ type: "idle", message: "" });
   };
 
-  const resolveSupabase = () => {
-    try {
-      return { client: getSupabaseClient(), error: null };
-    } catch (error) {
-      return { client: null, error };
-    }
-  };
-
   const resetScheduleForm = () => {
     setScheduleForm(emptyScheduleForm);
     setScheduleEditingId(null);
@@ -232,51 +219,34 @@ export default function EmployeesPanel({
     setVacationsError("");
     setDetailsLoading(true);
 
-    const { client, error } = resolveSupabase();
-    if (error || !client) {
-      const message = buildErrorMessage(
-        "Faltan variables de entorno de Supabase.",
-        error
-      );
+    if (!accessToken) {
+      const message = "Sesion invalida. Inicia sesion otra vez.";
       setScheduleError(message);
       setVacationsError(message);
       setDetailsLoading(false);
       return;
     }
 
-    const [scheduleResponse, vacationsResponse] = await Promise.all([
-      client
-        .from("horarios")
-        .select(
-          "uuid,dia_semana,hora_entrada,hora_salida,hora_descanso_inicio,hora_descanso_fin"
-        )
-        .eq("id_empleado", employee.uuid)
-        .order("dia_semana", { ascending: true }),
-      client
-        .from("vacaciones")
-        .select("uuid,fecha_inicio,fecha_fin")
-        .eq("id_empleado", employee.uuid)
-        .order("fecha_inicio", { ascending: false }),
-    ]);
+    const response = await fetch(
+      `/api/employees/details?employeeId=${encodeURIComponent(employee.uuid)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+    const payload = await response.json().catch(() => ({}));
 
-    if (scheduleResponse?.error) {
-      setScheduleError(
-        buildErrorMessage("No pudimos cargar los horarios.", scheduleResponse.error)
-      );
-    } else {
-      setSchedule(scheduleResponse?.data ?? []);
+    if (!response.ok || payload.status !== "ok") {
+      const message = payload.message || "No pudimos cargar los horarios.";
+      setScheduleError(message);
+      setVacationsError(message);
+      setDetailsLoading(false);
+      return;
     }
 
-    if (vacationsResponse?.error) {
-      setVacationsError(
-        buildErrorMessage(
-          "No pudimos cargar las vacaciones.",
-          vacationsResponse.error
-        )
-      );
-    } else {
-      setVacations(vacationsResponse?.data ?? []);
-    }
+    setSchedule(payload.schedule ?? []);
+    setVacations(payload.vacations ?? []);
 
     setDetailsLoading(false);
   };
@@ -344,20 +314,16 @@ export default function EmployeesPanel({
       return;
     }
 
-    const { client, error } = resolveSupabase();
-    if (error || !client) {
-      setScheduleError(
-        buildErrorMessage("Faltan variables de entorno de Supabase.", error)
-      );
+    if (!accessToken) {
+      setScheduleError("Sesion invalida. Inicia sesion otra vez.");
       return;
     }
 
     setScheduleSaving(true);
     setScheduleError("");
 
-    const payload = {
-      id_empresa: companyId,
-      id_empleado: selectedEmployee.uuid,
+    const requestBody = {
+      employeeId: selectedEmployee.uuid,
       dia_semana: dayNumber,
       hora_entrada: scheduleForm.hora_entrada || null,
       hora_salida: scheduleForm.hora_salida || null,
@@ -365,13 +331,23 @@ export default function EmployeesPanel({
       hora_descanso_fin: scheduleForm.hora_descanso_fin || null,
     };
 
-    const response = scheduleEditingId
-      ? await client.from("horarios").update(payload).eq("uuid", scheduleEditingId)
-      : await client.from("horarios").insert(payload);
+    if (scheduleEditingId) {
+      requestBody.scheduleId = scheduleEditingId;
+    }
 
-    if (response?.error) {
+    const response = await fetch("/api/employees/schedule", {
+      method: scheduleEditingId ? "PATCH" : "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok || payload.status !== "ok") {
       setScheduleError(
-        buildErrorMessage("No pudimos guardar el horario.", response.error)
+        payload.message || "No pudimos guardar el horario."
       );
       setScheduleSaving(false);
       return;
@@ -414,34 +390,37 @@ export default function EmployeesPanel({
       return;
     }
 
-    const { client, error } = resolveSupabase();
-    if (error || !client) {
-      setVacationsError(
-        buildErrorMessage("Faltan variables de entorno de Supabase.", error)
-      );
+    if (!accessToken) {
+      setVacationsError("Sesion invalida. Inicia sesion otra vez.");
       return;
     }
 
     setVacationSaving(true);
     setVacationsError("");
 
-    const payload = {
-      id_empresa: companyId,
-      id_empleado: selectedEmployee.uuid,
+    const requestBody = {
+      employeeId: selectedEmployee.uuid,
       fecha_inicio: vacationForm.fecha_inicio,
       fecha_fin: vacationForm.fecha_fin,
     };
 
-    const response = vacationEditingId
-      ? await client
-          .from("vacaciones")
-          .update(payload)
-          .eq("uuid", vacationEditingId)
-      : await client.from("vacaciones").insert(payload);
+    if (vacationEditingId) {
+      requestBody.vacationId = vacationEditingId;
+    }
 
-    if (response?.error) {
+    const response = await fetch("/api/employees/vacations", {
+      method: vacationEditingId ? "PATCH" : "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok || payload.status !== "ok") {
       setVacationsError(
-        buildErrorMessage("No pudimos guardar las vacaciones.", response.error)
+        payload.message || "No pudimos guardar las vacaciones."
       );
       setVacationSaving(false);
       return;
@@ -458,26 +437,29 @@ export default function EmployeesPanel({
 
     if (!window.confirm("Eliminar este horario?")) return;
 
-    const { client, error } = resolveSupabase();
-    if (error || !client) {
-      setScheduleError(
-        buildErrorMessage("Faltan variables de entorno de Supabase.", error)
-      );
+    if (!accessToken) {
+      setScheduleError("Sesion invalida. Inicia sesion otra vez.");
       return;
     }
 
     setScheduleSaving(true);
     setScheduleError("");
 
-    const { error: deleteError } = await client
-      .from("horarios")
-      .delete()
-      .eq("uuid", item.uuid);
+    const response = await fetch("/api/employees/schedule", {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        employeeId: selectedEmployee.uuid,
+        scheduleId: item.uuid,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
 
-    if (deleteError) {
-      setScheduleError(
-        buildErrorMessage("No pudimos eliminar el horario.", deleteError)
-      );
+    if (!response.ok || payload.status !== "ok") {
+      setScheduleError(payload.message || "No pudimos eliminar el horario.");
       setScheduleSaving(false);
       return;
     }
@@ -495,26 +477,29 @@ export default function EmployeesPanel({
 
     if (!window.confirm("Eliminar estas vacaciones?")) return;
 
-    const { client, error } = resolveSupabase();
-    if (error || !client) {
-      setVacationsError(
-        buildErrorMessage("Faltan variables de entorno de Supabase.", error)
-      );
+    if (!accessToken) {
+      setVacationsError("Sesion invalida. Inicia sesion otra vez.");
       return;
     }
 
     setVacationSaving(true);
     setVacationsError("");
 
-    const { error: deleteError } = await client
-      .from("vacaciones")
-      .delete()
-      .eq("uuid", item.uuid);
+    const response = await fetch("/api/employees/vacations", {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        employeeId: selectedEmployee.uuid,
+        vacationId: item.uuid,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
 
-    if (deleteError) {
-      setVacationsError(
-        buildErrorMessage("No pudimos eliminar las vacaciones.", deleteError)
-      );
+    if (!response.ok || payload.status !== "ok") {
+      setVacationsError(payload.message || "No pudimos eliminar las vacaciones.");
       setVacationSaving(false);
       return;
     }
@@ -576,7 +561,7 @@ export default function EmployeesPanel({
     setStatus({ type: "loading", message: "Guardando cambios..." });
 
     const payload = {
-      companyId,
+      accessToken,
       name: trimmedName,
       email: formState.email.trim(),
       phone: formState.phone.trim(),
@@ -588,6 +573,7 @@ export default function EmployeesPanel({
     const result = isCreating
       ? await createEmployeeProfile(payload)
       : await updateEmployeeProfile({
+          accessToken,
           employeeId: editingEmployee.uuid,
           ...payload,
         });

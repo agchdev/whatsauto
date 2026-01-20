@@ -22,6 +22,7 @@ import UpcomingAppointmentsTable from "./UpcomingAppointmentsTable";
 import WaitlistPanel from "./WaitlistPanel";
 
 export default function DashboardView({
+  accessToken,
   activeKey: initialActiveKey = "panel",
   companyName,
   dataError,
@@ -174,6 +175,7 @@ export default function DashboardView({
 
           {isEmployeesView ? (
             <EmployeesPanel
+              accessToken={accessToken}
               canManage={employee.role === "boss"}
               companyId={employee.companyId}
               employees={employees}
@@ -182,12 +184,14 @@ export default function DashboardView({
             />
           ) : isClientsView ? (
             <ClientsPanel
+              accessToken={accessToken}
               clients={clients}
               isLoading={dataLoading}
               onRefresh={onRefreshData}
             />
           ) : isServicesView ? (
             <ServicesPanel
+              accessToken={accessToken}
               canManage={employee.role === "boss"}
               companyId={employee.companyId}
               employees={employees}
@@ -197,8 +201,8 @@ export default function DashboardView({
             />
           ) : isWaitlistView ? (
             <WaitlistPanel
+              accessToken={accessToken}
               clients={clients}
-              companyId={employee.companyId}
               isLoading={dataLoading}
               onRefresh={onRefreshData}
               waitlist={waitlist}
@@ -211,6 +215,7 @@ export default function DashboardView({
           ) : isAppointmentsView ? (
             <>
               <AppointmentsCalendar
+                accessToken={accessToken}
                 appointments={upcomingAppointments}
                 clients={clients}
                 employees={employees}

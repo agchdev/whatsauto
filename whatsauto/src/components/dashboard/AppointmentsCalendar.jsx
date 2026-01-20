@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatDateTime } from "../../lib/formatters";
-import { getSupabaseClient } from "../../lib/supabaseClient";
 
 const WEEKDAYS = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
 const MONTH_FORMATTER = new Intl.DateTimeFormat("es-ES", {
@@ -88,11 +87,6 @@ const ModalShell = ({ isOpen, onClose, children, size = "max-w-2xl" }) => {
   );
 };
 
-const buildErrorMessage = (fallback, error) => {
-  const details = error?.message || error?.details || "";
-  return details ? `${fallback} (${details})` : fallback;
-};
-
 const pad2 = (value) => String(value).padStart(2, "0");
 
 const formatLocalDate = (date) =>
@@ -101,43 +95,8 @@ const formatLocalDate = (date) =>
 const formatLocalTime = (date) =>
   `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 
-const getWeekdayNumber = (date) => ((date.getDay() + 6) % 7) + 1;
-
-const parseTimeMinutes = (value) => {
-  if (!value) return null;
-  const [hour, minute] = String(value).split(":");
-  const parsedHour = Number(hour);
-  const parsedMinute = Number(minute || "0");
-  if (!Number.isFinite(parsedHour) || !Number.isFinite(parsedMinute)) return null;
-  return parsedHour * 60 + parsedMinute;
-};
-
-const isOverlappingRange = (start, end, rangeStart, rangeEnd) =>
-  start < rangeEnd && end > rangeStart;
-
-const normalizeDateOnly = (value) => {
-  if (!value) return "";
-  return String(value).split("T")[0];
-};
-
 const normalizeStatus = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : "";
-
-const createToken = () => {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  if (typeof window !== "undefined" && window.crypto?.randomUUID) {
-    return window.crypto.randomUUID();
-  }
-  const bytes = new Uint8Array(16);
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    crypto.getRandomValues(bytes);
-  } else if (typeof window !== "undefined" && window.crypto?.getRandomValues) {
-    window.crypto.getRandomValues(bytes);
-  }
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-};
 
 const emptyForm = {
   clientId: "",
@@ -150,6 +109,7 @@ const emptyForm = {
 };
 
 export default function AppointmentsCalendar({
+  accessToken,
   appointments = [],
   clients = [],
   employees = [],
@@ -415,28 +375,10 @@ export default function AppointmentsCalendar({
       return;
     }
 
-    let supabase;
-    try {
-      supabase = getSupabaseClient();
-    } catch (error) {
-      setRegenStatus({
-        type: "error",
-        message: buildErrorMessage(
-          "Faltan variables de entorno de Supabase.",
-          error
-        ),
-      });
-      return;
-    }
-
     setIsRegenerating(true);
     setRegenStatus({ type: "loading", message: "Generando enlace..." });
     setRegenLink("");
     setRegenCopyStatus("");
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-
     if (!accessToken) {
       setRegenStatus({
         type: "error",
@@ -567,188 +509,44 @@ export default function AppointmentsCalendar({
       return;
     }
 
-    let supabase;
-    try {
-      supabase = getSupabaseClient();
-    } catch (error) {
-      setFormStatus({
-        type: "error",
-        message: buildErrorMessage(
-          "Faltan variables de entorno de Supabase.",
-          error
-        ),
-      });
-      return;
-    }
-
     setIsSaving(true);
-    setFormStatus({ type: "loading", message: "Validando disponibilidad..." });
-
-    const weekdayNumber = getWeekdayNumber(start);
-    const startMinutes = start.getHours() * 60 + start.getMinutes();
-    const endMinutes = end.getHours() * 60 + end.getMinutes();
-
-    const [scheduleResponse, vacationsResponse] = await Promise.all([
-      supabase
-        .from("horarios")
-        .select("hora_entrada,hora_salida,hora_descanso_inicio,hora_descanso_fin")
-        .eq("id_empresa", companyId)
-        .eq("id_empleado", formState.employeeId)
-        .eq("dia_semana", weekdayNumber),
-      supabase
-        .from("vacaciones")
-        .select("fecha_inicio,fecha_fin")
-        .eq("id_empresa", companyId)
-        .eq("id_empleado", formState.employeeId),
-    ]);
-
-    if (scheduleResponse.error) {
-      setFormStatus({
-        type: "error",
-        message: buildErrorMessage(
-          "No pudimos validar el horario del empleado.",
-          scheduleResponse.error
-        ),
-      });
-      setIsSaving(false);
-      return;
-    }
-
-    if (vacationsResponse.error) {
-      setFormStatus({
-        type: "error",
-        message: buildErrorMessage(
-          "No pudimos validar las vacaciones del empleado.",
-          vacationsResponse.error
-        ),
-      });
-      setIsSaving(false);
-      return;
-    }
-
-    const scheduleEntries = scheduleResponse.data || [];
-    if (!scheduleEntries.length) {
-      setFormStatus({
-        type: "error",
-        message: "El empleado no tiene horario registrado para este dia.",
-      });
-      setIsSaving(false);
-      return;
-    }
-
-    const vacationEntries = vacationsResponse.data || [];
-    const isOnVacation = vacationEntries.some((vacation) => {
-      const startDate = normalizeDateOnly(vacation.fecha_inicio);
-      const endDate = normalizeDateOnly(vacation.fecha_fin) || startDate;
-      if (!startDate) return false;
-      return startDateKey >= startDate && startDateKey <= endDate;
-    });
-
-    if (isOnVacation) {
-      setFormStatus({
-        type: "error",
-        message: "El empleado esta de vacaciones en esa fecha.",
-      });
-      setIsSaving(false);
-      return;
-    }
-
-    let hasMatchingWindow = false;
-    let hasBreakConflict = false;
-    let hasAvailableWindow = false;
-
-    for (const schedule of scheduleEntries) {
-      const entryMinutes = parseTimeMinutes(schedule.hora_entrada);
-      const exitMinutes = parseTimeMinutes(schedule.hora_salida);
-      if (
-        entryMinutes === null ||
-        exitMinutes === null ||
-        exitMinutes <= entryMinutes
-      ) {
-        continue;
-      }
-      if (startMinutes < entryMinutes || endMinutes > exitMinutes) {
-        continue;
-      }
-
-      hasMatchingWindow = true;
-
-      const breakStart = parseTimeMinutes(schedule.hora_descanso_inicio);
-      const breakEnd = parseTimeMinutes(schedule.hora_descanso_fin);
-      if (
-        breakStart !== null &&
-        breakEnd !== null &&
-        breakEnd > breakStart &&
-        isOverlappingRange(startMinutes, endMinutes, breakStart, breakEnd)
-      ) {
-        hasBreakConflict = true;
-        continue;
-      }
-
-      hasAvailableWindow = true;
-      break;
-    }
-
-    if (!hasAvailableWindow) {
-      setFormStatus({
-        type: "error",
-        message: hasMatchingWindow && hasBreakConflict
-          ? "La cita coincide con el descanso del empleado."
-          : "La cita esta fuera del horario de trabajo del empleado.",
-      });
-      setIsSaving(false);
-      return;
-    }
-
     setFormStatus({ type: "loading", message: "Creando cita..." });
     setCreatedLink("");
     setCopyStatus("");
 
-    const { data: appointment, error: appointmentError } = await supabase
-      .from("citas")
-      .insert({
-        id_empresa: companyId,
-        id_empleado: formState.employeeId,
-        id_cliente: formState.clientId,
-        id_servicio: formState.serviceId,
-        titulo: formState.title.trim() || null,
-        descripcion: formState.description.trim() || null,
-        tiempo_inicio: start.toISOString(),
-        tiempo_fin: end.toISOString(),
-        estado: "pendiente",
-      })
-      .select("uuid,tiempo_inicio")
-      .single();
-
-    if (appointmentError) {
+    if (!accessToken) {
       setFormStatus({
         type: "error",
-        message: buildErrorMessage(
-          "No pudimos crear la cita.",
-          appointmentError
-        ),
+        message: "Sesion invalida. Inicia sesion otra vez.",
       });
       setIsSaving(false);
       return;
     }
 
-    const token = createToken();
-    const { error: confirmationError } = await supabase
-      .from("confirmaciones")
-      .insert({
-        id_cita: appointment.uuid,
-        token_hash: token,
-        expires_at: appointment.tiempo_inicio,
-        tipo: "confirmar",
-      });
+    const response = await fetch("/api/appointments", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clientId: formState.clientId,
+        employeeId: formState.employeeId,
+        serviceId: formState.serviceId,
+        date: formState.date,
+        time: formState.time,
+        title: formState.title,
+        description: formState.description,
+        timezoneOffsetMinutes: start.getTimezoneOffset(),
+      }),
+    });
 
-    if (confirmationError) {
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok || payload.status !== "ok") {
       setFormStatus({
         type: "error",
-        message: buildErrorMessage(
-          "La cita se creo, pero no pudimos generar la confirmacion.",
-          confirmationError
-        ),
+        message: payload.message || "No pudimos crear la cita.",
       });
       setIsSaving(false);
       return;
@@ -756,12 +554,13 @@ export default function AppointmentsCalendar({
 
     const origin =
       typeof window !== "undefined" ? window.location.origin : "";
-    const link = origin ? `${origin}/confirmar/${token}` : token;
+    const token = typeof payload.token === "string" ? payload.token : "";
+    const link = token && origin ? `${origin}/confirmar/${token}` : token;
 
     setCreatedLink(link);
     setFormStatus({
       type: "success",
-      message: "Cita creada. Confirmacion generada.",
+      message: payload.message || "Cita creada. Confirmacion generada.",
     });
 
     onCreated?.({
@@ -791,35 +590,36 @@ export default function AppointmentsCalendar({
       return;
     }
 
-    let supabase;
-    try {
-      supabase = getSupabaseClient();
-    } catch (error) {
-      setEditStatus({
-        type: "error",
-        message: buildErrorMessage(
-          "Faltan variables de entorno de Supabase.",
-          error
-        ),
-      });
-      return;
-    }
-
     setIsEditSaving(true);
     setEditStatus({ type: "loading", message: "Actualizando estado..." });
 
-    const { error: updateError } = await supabase
-      .from("citas")
-      .update({ estado: editStatusValue, updated_at: new Date().toISOString() })
-      .eq("uuid", editingAppointment.uuid);
-
-    if (updateError) {
+    if (!accessToken) {
       setEditStatus({
         type: "error",
-        message: buildErrorMessage(
-          "No pudimos actualizar el estado.",
-          updateError
-        ),
+        message: "Sesion invalida. Inicia sesion otra vez.",
+      });
+      setIsEditSaving(false);
+      return;
+    }
+
+    const response = await fetch("/api/appointments", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        appointmentId: editingAppointment.uuid,
+        status: editStatusValue,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok || payload.status !== "ok") {
+      setEditStatus({
+        type: "error",
+        message: payload.message || "No pudimos actualizar el estado.",
       });
       setIsEditSaving(false);
       return;

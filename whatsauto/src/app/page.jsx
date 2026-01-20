@@ -90,18 +90,7 @@ export default function Home() {
     setDataLoading(true);
     setDataError("");
 
-    const { client, error } = resolveClient();
-    if (error || !client) {
-      setDataError(
-        "Faltan variables de entorno de Supabase. Revisa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY."
-      );
-      setDataLoading(false);
-      return;
-    }
-
     const result = await fetchDashboardData({
-      supabase: client,
-      userId: session.user.id,
       accessToken: session.access_token,
     });
 
@@ -236,6 +225,7 @@ export default function Home() {
             companyName={companyDisplayName}
             dataError={dataError}
             dataLoading={dataLoading}
+            accessToken={session?.access_token || ""}
             employee={employeeProfile}
             employees={employees}
             clients={clients}

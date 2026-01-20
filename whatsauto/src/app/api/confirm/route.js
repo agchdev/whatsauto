@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notifyWebhook } from "../_helpers";
 import { getSupabaseAdmin } from "../../../lib/supabaseAdmin";
 
 const VALID_TIPOS = new Set(["confirmar", "eliminar", "espera", "modificar"]);
@@ -52,6 +53,21 @@ const fetchConfirmation = async (token, tipo) => {
   }
 
   return { data, error: null };
+};
+
+const buildAppointmentPayload = (data) => {
+  const appointment = data?.citas || {};
+
+  return {
+    id: data?.id_cita || null,
+    estado: appointment?.estado || null,
+    tiempo_inicio: appointment?.tiempo_inicio || null,
+    tiempo_fin: appointment?.tiempo_fin || null,
+    titulo: appointment?.titulo || null,
+    descripcion: appointment?.descripcion || null,
+    cliente: appointment?.clientes || null,
+    servicio: appointment?.servicios || null,
+  };
 };
 
 export async function GET(request) {
@@ -167,12 +183,31 @@ export async function POST(request) {
     }
   }
 
+  let webhookEvent = "";
+  let waitlistClientIds = [];
+
   if (tipo === "eliminar" && action === "confirm") {
     if (!data.id_cita) {
       return buildResponse("error", {
         message: "No pudimos eliminar la cita.",
       });
     }
+
+    const { data: waitlistEntries, error: waitlistFetchError } = await client
+      .from("esperas")
+      .select("id_cliente")
+      .eq("id_cita", data.id_cita);
+
+    if (waitlistFetchError) {
+      return buildResponse("error", {
+        message: "No pudimos cargar la lista de espera.",
+        details: waitlistFetchError.message,
+      });
+    }
+
+    waitlistClientIds = (waitlistEntries || [])
+      .map((entry) => entry?.id_cliente)
+      .filter(Boolean);
 
     const { error: waitlistError } = await client
       .from("esperas")
@@ -197,6 +232,12 @@ export async function POST(request) {
         details: deleteError.message,
       });
     }
+
+    webhookEvent = "appointment_deleted_confirmed";
+  }
+
+  if (tipo === "modificar" && action === "confirm") {
+    webhookEvent = "appointment_time_change_confirmed";
   }
 
   const { error: confirmationError } = await client
@@ -209,6 +250,19 @@ export async function POST(request) {
     return buildResponse("error", {
       message: "No pudimos cerrar la confirmacion.",
       details: confirmationError.message,
+    });
+  }
+
+  if (webhookEvent) {
+    await notifyWebhook(webhookEvent, {
+      action,
+      confirmation: {
+        id: data.uuid,
+        tipo: data.tipo,
+      },
+      appointment: buildAppointmentPayload(data),
+      waitlist_client_ids: waitlistClientIds,
+      waitlist_count: waitlistClientIds.length,
     });
   }
 

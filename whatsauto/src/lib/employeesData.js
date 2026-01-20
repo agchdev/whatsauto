@@ -1,7 +1,5 @@
-import { getSupabaseClient } from "./supabaseClient";
-
 export const createEmployeeProfile = async ({
-  companyId,
+  accessToken,
   name,
   email,
   phone,
@@ -9,33 +7,40 @@ export const createEmployeeProfile = async ({
   role,
   active,
 }) => {
-  let supabase;
-  try {
-    supabase = getSupabaseClient();
-  } catch (error) {
-    return { data: null, error };
+  if (!accessToken) {
+    return { data: null, error: new Error("Sesion invalida.") };
   }
 
-  // Inserta un empleado nuevo en la tabla "empleados".
-  // Ajusta los campos si agregas columnas o cambias el esquema.
-  const { data, error } = await supabase
-    .from("empleados")
-    .insert({
-      id_empresa: companyId,
-      nombre: name,
-      correo: email || null,
-      telefono: phone || null,
-      dni: dni || null,
+  const response = await fetch("/api/employees", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name,
+      email,
+      phone,
+      dni,
       role,
-      activo: active,
-    })
-    .select("uuid,nombre,correo,telefono,dni,role,activo")
-    .single();
+      active,
+    }),
+  });
 
-  return { data: data || null, error: error || null };
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload.status !== "ok") {
+    return {
+      data: null,
+      error: new Error(payload.message || "No pudimos crear el empleado."),
+    };
+  }
+
+  return { data: payload.employee || null, error: null };
 };
 
 export const updateEmployeeProfile = async ({
+  accessToken,
   employeeId,
   name,
   email,
@@ -44,26 +49,34 @@ export const updateEmployeeProfile = async ({
   role,
   active,
 }) => {
-  let supabase;
-  try {
-    supabase = getSupabaseClient();
-  } catch (error) {
-    return { error };
+  if (!accessToken) {
+    return { error: new Error("Sesion invalida.") };
   }
 
-  // Actualiza datos del empleado en la tabla "empleados".
-  // Agrega o quita campos segun necesites (por ejemplo, role o activo).
-  const { error } = await supabase
-    .from("empleados")
-    .update({
-      nombre: name,
-      correo: email || null,
-      telefono: phone || null,
-      dni: dni || null,
+  const response = await fetch("/api/employees", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      employeeId,
+      name,
+      email,
+      phone,
+      dni,
       role,
-      activo: active,
-    })
-    .eq("uuid", employeeId);
+      active,
+    }),
+  });
 
-  return { error: error || null };
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload.status !== "ok") {
+    return {
+      error: new Error(payload.message || "No pudimos actualizar el empleado."),
+    };
+  }
+
+  return { error: null };
 };

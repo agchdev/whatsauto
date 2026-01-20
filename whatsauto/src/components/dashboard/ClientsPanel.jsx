@@ -2,14 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatDateTime, formatDuration, formatPrice } from "../../lib/formatters";
-import { getSupabaseClient } from "../../lib/supabaseClient";
 
 const CLIENTS_PAGE_SIZE = 8;
-
-const buildErrorMessage = (fallback, error) => {
-  const details = error?.message || error?.details || "";
-  return details ? `${fallback} (${details})` : fallback;
-};
 
 const ModalShell = ({ isOpen, onClose, children, size = "max-w-xl" }) => {
   if (!isOpen) return null;
@@ -36,7 +30,12 @@ const emptyForm = {
   phone: "",
 };
 
-export default function ClientsPanel({ clients = [], isLoading, onRefresh }) {
+export default function ClientsPanel({
+  accessToken,
+  clients = [],
+  isLoading,
+  onRefresh,
+}) {
   const [clientList, setClientList] = useState(clients);
   const [selectedClient, setSelectedClient] = useState(null);
   const [history, setHistory] = useState([]);
@@ -90,39 +89,29 @@ export default function ClientsPanel({ clients = [], isLoading, onRefresh }) {
     setEditingClient(null);
     setEditStatus({ type: "idle", message: "" });
 
-    let supabase;
-    try {
-      supabase = getSupabaseClient();
-    } catch (error) {
-      setHistoryError(
-        buildErrorMessage(
-          "Faltan variables de entorno de Supabase.",
-          error
-        )
-      );
+    if (!accessToken) {
+      setHistoryError("Sesion invalida. Inicia sesion otra vez.");
       setHistoryLoading(false);
       return;
     }
 
-    // Historial de citas del cliente seleccionado.
-    // Ajusta el select si necesitas mas campos o relaciones.
-    const { data, error } = await supabase
-      .from("citas")
-      .select(
-        "uuid,estado,tiempo_inicio,tiempo_fin,servicios(nombre,precio,duracion),empleados(nombre)"
-      )
-      .eq("id_cliente", client.uuid)
-      .order("tiempo_inicio", { ascending: false });
+    const response = await fetch(
+      `/api/clients/history?clientId=${encodeURIComponent(client.uuid)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+    const payload = await response.json().catch(() => ({}));
 
-    if (error) {
-      setHistoryError(
-        buildErrorMessage("No pudimos cargar el historial.", error)
-      );
+    if (!response.ok || payload.status !== "ok") {
+      setHistoryError(payload.message || "No pudimos cargar el historial.");
       setHistoryLoading(false);
       return;
     }
 
-    setHistory(data || []);
+    setHistory(payload.history || []);
     setHistoryLoading(false);
   };
 
@@ -165,16 +154,10 @@ export default function ClientsPanel({ clients = [], isLoading, onRefresh }) {
       return;
     }
 
-    let supabase;
-    try {
-      supabase = getSupabaseClient();
-    } catch (error) {
+    if (!accessToken) {
       setEditStatus({
         type: "error",
-        message: buildErrorMessage(
-          "Faltan variables de entorno de Supabase.",
-          error
-        ),
+        message: "Sesion invalida. Inicia sesion otra vez.",
       });
       return;
     }
@@ -182,32 +165,35 @@ export default function ClientsPanel({ clients = [], isLoading, onRefresh }) {
     setEditSaving(true);
     setEditStatus({ type: "loading", message: "Guardando cliente..." });
 
-    const payload = {
-      nombre: trimmedName,
-      telefono: editForm.phone.trim() || null,
-    };
+    const response = await fetch("/api/clients", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clientId: editingClient.uuid,
+        name: trimmedName,
+        phone: editForm.phone.trim(),
+      }),
+    });
 
-    const { data, error } = await supabase
-      .from("clientes")
-      .update(payload)
-      .eq("uuid", editingClient.uuid)
-      .select("uuid,nombre,telefono")
-      .single();
+    const payload = await response.json().catch(() => ({}));
 
-    if (error) {
+    if (!response.ok || payload.status !== "ok") {
       setEditStatus({
         type: "error",
         message:
-          error.message || "No pudimos actualizar el cliente. Intenta otra vez.",
+          payload.message || "No pudimos actualizar el cliente. Intenta otra vez.",
       });
       setEditSaving(false);
       return;
     }
 
-    const updatedClient = data || {
+    const updatedClient = payload.client || {
       uuid: editingClient.uuid,
-      nombre: payload.nombre,
-      telefono: payload.telefono,
+      nombre: trimmedName,
+      telefono: editForm.phone.trim() || null,
     };
 
     setClientList((prev) =>

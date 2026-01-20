@@ -40,6 +40,7 @@ const ModalShell = ({ isOpen, onClose, children, size = "max-w-3xl" }) => {
 };
 
 export default function ServicesPanel({
+  accessToken,
   services = [],
   employees = [],
   companyId,
@@ -139,11 +140,11 @@ export default function ServicesPanel({
     setStatus({ type: "loading", message: "Guardando servicio..." });
 
     const payload = {
+      accessToken,
       name: trimmedName,
       duration: durationValue,
       price: priceValue,
       employeeId: formState.employeeId,
-      companyId,
     };
 
     const result = editingService

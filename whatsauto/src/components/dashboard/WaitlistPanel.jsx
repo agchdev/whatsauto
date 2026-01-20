@@ -2,10 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatDateTime } from "../../lib/formatters";
-import { getSupabaseClient } from "../../lib/supabaseClient";
-
-const WAITLIST_SELECT =
-  "uuid,id_cita,id_cliente,created_at,citas(uuid,tiempo_inicio,tiempo_fin,estado,titulo,empleados(nombre),servicios(nombre)),clientes(uuid,nombre,telefono)";
 
 const emptyForm = {
   clientId: "",
@@ -26,11 +22,6 @@ const ASSIGN_BUTTON_STYLES = {
   unavailable: "border-rose-400/40 bg-rose-500/10 text-rose-200",
 };
 const WAITLIST_PAGE_SIZE = 6;
-
-const buildErrorMessage = (fallback, error) => {
-  const details = error?.message || error?.details || "";
-  return details ? `${fallback} (${details})` : fallback;
-};
 
 const ModalShell = ({ isOpen, onClose, children, size = "max-w-2xl" }) => {
   if (!isOpen) return null;
@@ -79,26 +70,10 @@ const getAssignButtonClass = (canAssign) =>
     canAssign ? ASSIGN_BUTTON_STYLES.available : ASSIGN_BUTTON_STYLES.unavailable
   }`;
 
-const createToken = () => {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  if (typeof window !== "undefined" && window.crypto?.randomUUID) {
-    return window.crypto.randomUUID();
-  }
-  const bytes = new Uint8Array(16);
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    crypto.getRandomValues(bytes);
-  } else if (typeof window !== "undefined" && window.crypto?.getRandomValues) {
-    window.crypto.getRandomValues(bytes);
-  }
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-};
-
 export default function WaitlistPanel({
+  accessToken,
   waitlist = [],
   clients = [],
-  companyId,
   isLoading,
   onRefresh,
 }) {
@@ -148,14 +123,6 @@ export default function WaitlistPanel({
     }
   }, [waitlistPage, waitlistTotalPages]);
 
-  const resolveSupabase = () => {
-    try {
-      return { client: getSupabaseClient(), error: null };
-    } catch (error) {
-      return { client: null, error };
-    }
-  };
-
   const ensureAppointmentOptions = async (currentAppointment) => {
     if (optionsLoading) return [];
     if (appointmentOptions.length) {
@@ -173,39 +140,26 @@ export default function WaitlistPanel({
     setOptionsLoading(true);
     setOptionsError("");
 
-    const { client, error } = resolveSupabase();
-    if (error || !client) {
-      setOptionsError(
-        buildErrorMessage("Faltan variables de entorno de Supabase.", error)
-      );
+    if (!accessToken) {
+      setOptionsError("Sesion invalida. Inicia sesion otra vez.");
       setOptionsLoading(false);
       return [];
     }
 
-    const nowIso = new Date().toISOString();
-    let query = client
-      .from("citas")
-      .select(
-        "uuid,tiempo_inicio,tiempo_fin,estado,titulo,clientes(nombre,telefono),servicios(nombre),empleados(nombre)"
-      )
-      .gte("tiempo_fin", nowIso)
-      .order("tiempo_inicio", { ascending: true })
-      .limit(200);
+    const response = await fetch("/api/waitlist/options", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
 
-    if (companyId) {
-      query = query.eq("id_empresa", companyId);
-    }
-
-    const { data, error: fetchError } = await query;
-    if (fetchError) {
-      setOptionsError(
-        buildErrorMessage("No pudimos cargar las citas.", fetchError)
-      );
+    if (!response.ok || payload.status !== "ok") {
+      setOptionsError(payload.message || "No pudimos cargar las citas.");
       setOptionsLoading(false);
       return [];
     }
 
-    let options = data || [];
+    let options = payload.appointments || [];
     if (
       currentAppointment &&
       !options.some((item) => item.uuid === currentAppointment.uuid)
@@ -282,14 +236,10 @@ export default function WaitlistPanel({
       return;
     }
 
-    const { client, error } = resolveSupabase();
-    if (error || !client) {
+    if (!accessToken) {
       setStatus({
         type: "error",
-        message: buildErrorMessage(
-          "Faltan variables de entorno de Supabase.",
-          error
-        ),
+        message: "Sesion invalida. Inicia sesion otra vez.",
       });
       return;
     }
@@ -297,44 +247,36 @@ export default function WaitlistPanel({
     setIsSaving(true);
     setStatus({ type: "loading", message: "Guardando espera..." });
 
-    const payload = {
-      id_cita: formState.appointmentId,
-      id_cliente: formState.clientId,
-    };
+    const response = await fetch("/api/waitlist", {
+      method: editingEntry ? "PATCH" : "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        entryId: editingEntry?.uuid,
+        appointmentId: formState.appointmentId,
+        clientId: formState.clientId,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
 
-    const query = editingEntry
-      ? client
-          .from("esperas")
-          .update(payload)
-          .eq("uuid", editingEntry.uuid)
-          .select(WAITLIST_SELECT)
-          .single()
-      : client
-          .from("esperas")
-          .insert(payload)
-          .select(WAITLIST_SELECT)
-          .single();
-
-    const { data, error: saveError } = await query;
-
-    if (saveError) {
+    if (!response.ok || payload.status !== "ok") {
       setStatus({
         type: "error",
-        message: buildErrorMessage(
-          "No pudimos guardar la espera.",
-          saveError
-        ),
+        message: payload.message || "No pudimos guardar la espera.",
       });
       setIsSaving(false);
       return;
     }
 
-    if (data) {
+    const entry = payload.entry;
+    if (entry) {
       setWaitlistEntries((prev) => {
         if (editingEntry) {
-          return prev.map((item) => (item.uuid === data.uuid ? data : item));
+          return prev.map((item) => (item.uuid === entry.uuid ? entry : item));
         }
-        return [data, ...prev];
+        return [entry, ...prev];
       });
     }
 
@@ -355,30 +297,28 @@ export default function WaitlistPanel({
 
     setStatus({ type: "idle", message: "" });
 
-    const { client, error } = resolveSupabase();
-    if (error || !client) {
+    if (!accessToken) {
       setStatus({
         type: "error",
-        message: buildErrorMessage(
-          "Faltan variables de entorno de Supabase.",
-          error
-        ),
+        message: "Sesion invalida. Inicia sesion otra vez.",
       });
       return;
     }
 
-    const { error: deleteError } = await client
-      .from("esperas")
-      .delete()
-      .eq("uuid", entry.uuid);
+    const response = await fetch("/api/waitlist", {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ entryId: entry.uuid }),
+    });
+    const payload = await response.json().catch(() => ({}));
 
-    if (deleteError) {
+    if (!response.ok || payload.status !== "ok") {
       setStatus({
         type: "error",
-        message: buildErrorMessage(
-          "No pudimos eliminar la espera.",
-          deleteError
-        ),
+        message: payload.message || "No pudimos eliminar la espera.",
       });
       return;
     }
@@ -409,99 +349,49 @@ export default function WaitlistPanel({
       return;
     }
 
-    const { client, error } = resolveSupabase();
-    if (error || !client) {
-      setStatus({
-        type: "error",
-        message: buildErrorMessage(
-          "Faltan variables de entorno de Supabase.",
-          error
-        ),
-      });
-      return;
-    }
-
     setAssigningId(entry.uuid);
     setStatus({ type: "loading", message: "Asignando cliente a la cita..." });
 
-    const nowIso = new Date().toISOString();
-    const { data: updated, error: updateError } = await client
-      .from("citas")
-      .update({ id_cliente: clientId, estado: "pendiente", updated_at: nowIso })
-      .eq("uuid", entry.id_cita)
-      .in("estado", Array.from(AVAILABLE_STATES))
-      .select("uuid,tiempo_inicio")
-      .maybeSingle();
-
-    if (updateError) {
+    if (!accessToken) {
       setStatus({
         type: "error",
-        message: buildErrorMessage(
-          "No pudimos actualizar la cita.",
-          updateError
-        ),
+        message: "Sesion invalida. Inicia sesion otra vez.",
       });
       setAssigningId(null);
       return;
     }
 
-    if (!updated) {
+    const response = await fetch("/api/waitlist/assign", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ entryId: entry.uuid }),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok || payload.status !== "ok") {
       setStatus({
         type: "error",
-        message: "La cita ya no esta disponible para reasignar.",
+        message: payload.message || "No pudimos actualizar la cita.",
       });
       setAssigningId(null);
       return;
     }
 
-    const token = createToken();
-    const { error: confirmationError } = await client
-      .from("confirmaciones")
-      .insert({
-        id_cita: updated.uuid,
-        token_hash: token,
-        expires_at: updated.tiempo_inicio,
-        tipo: "confirmar",
-      });
-
-    if (confirmationError) {
-      setStatus({
-        type: "error",
-        message: buildErrorMessage(
-          "La cita se actualizo, pero no pudimos generar la confirmacion.",
-          confirmationError
-        ),
-      });
-      setAssigningId(null);
-      return;
-    }
-
-    const { error: deleteError } = await client
-      .from("esperas")
-      .delete()
-      .eq("uuid", entry.uuid);
-
-    if (deleteError) {
-      setStatus({
-        type: "error",
-        message: buildErrorMessage(
-          "La cita se asigno, pero no pudimos eliminar la espera.",
-          deleteError
-        ),
-      });
-    } else {
-      setWaitlistEntries((prev) =>
-        prev.filter((item) => item.uuid !== entry.uuid)
-      );
-    }
+    setWaitlistEntries((prev) =>
+      prev.filter((item) => item.uuid !== entry.uuid)
+    );
 
     const origin =
       typeof window !== "undefined" ? window.location.origin : "";
-    setGeneratedLink(origin ? `${origin}/confirmar/${token}` : token);
+    const token = typeof payload.token === "string" ? payload.token : "";
+    setGeneratedLink(origin && token ? `${origin}/confirmar/${token}` : token);
     setLinkModalOpen(true);
     setStatus({
       type: "success",
-      message: "Cliente asignado. Confirmacion generada.",
+      message: payload.message || "Cliente asignado. Confirmacion generada.",
     });
     setAssigningId(null);
     onRefresh?.();
