@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { notifyWebhook } from "../_helpers";
 import { getSupabaseAdmin } from "../../../lib/supabaseAdmin";
@@ -185,17 +186,19 @@ export async function POST(request) {
 
   let webhookEvent = "";
   let waitlistClientIds = [];
+  let waitlistClientPhones = [];
+  let waitlistClients = [];
 
   if (tipo === "eliminar" && action === "confirm") {
     if (!data.id_cita) {
       return buildResponse("error", {
-        message: "No pudimos eliminar la cita.",
+        message: "No pudimos cancelar la cita.",
       });
     }
 
     const { data: waitlistEntries, error: waitlistFetchError } = await client
       .from("esperas")
-      .select("id_cliente")
+      .select("id_cliente,clientes(telefono)")
       .eq("id_cita", data.id_cita);
 
     if (waitlistFetchError) {
@@ -205,32 +208,30 @@ export async function POST(request) {
       });
     }
 
-    waitlistClientIds = (waitlistEntries || [])
-      .map((entry) => entry?.id_cliente)
-      .filter(Boolean);
+    waitlistClients = (waitlistEntries || [])
+      .map((entry) => ({
+        id: entry?.id_cliente || null,
+        telefono: entry?.clientes?.telefono || null,
+      }))
+      .filter((client) => client.id);
 
-    const { error: waitlistError } = await client
-      .from("esperas")
-      .delete()
-      .eq("id_cita", data.id_cita);
+    waitlistClientIds = waitlistClients.map((client) => client.id);
+    waitlistClientPhones = waitlistClients.map((client) => client.telefono);
 
-    if (waitlistError) {
+    const { error: updateError } = await client
+      .from("citas")
+      .update({ estado: "cancelada", updated_at: new Date().toISOString() })
+      .eq("uuid", data.id_cita);
+
+    if (updateError) {
       return buildResponse("error", {
-        message: "No pudimos eliminar la cita.",
-        details: waitlistError.message,
+        message: "No pudimos cancelar la cita.",
+        details: updateError.message,
       });
     }
 
-    const { error: deleteError } = await client
-      .from("citas")
-      .delete()
-      .eq("uuid", data.id_cita);
-
-    if (deleteError) {
-      return buildResponse("error", {
-        message: "No pudimos eliminar la cita.",
-        details: deleteError.message,
-      });
+    if (data.citas) {
+      data.citas.estado = "cancelada";
     }
 
     webhookEvent = "appointment_deleted_confirmed";
@@ -254,14 +255,19 @@ export async function POST(request) {
   }
 
   if (webhookEvent) {
+    const webhookToken = randomUUID();
     await notifyWebhook(webhookEvent, {
       action,
+      id_cita: data.id_cita,
+      token_hash: webhookToken,
       confirmation: {
         id: data.uuid,
         tipo: data.tipo,
       },
       appointment: buildAppointmentPayload(data),
       waitlist_client_ids: waitlistClientIds,
+      waitlist_client_phones: waitlistClientPhones,
+      waitlist_clients: waitlistClients,
       waitlist_count: waitlistClientIds.length,
     });
   }
