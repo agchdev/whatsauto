@@ -124,9 +124,7 @@ export default function DashboardView({
         onMobileClose={() => setIsMobileNavOpen(false)}
         onNavigate={handleNavigate}
         onToggle={handleToggleSidebar}
-        onPaletteChange={setPaletteKey}
         onSignOut={onSignOut}
-        paletteKey={paletteKey}
       />
 
       <div

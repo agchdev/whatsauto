@@ -8,6 +8,7 @@ const VALID_STATUSES = new Set([
   "realizada",
   "cancelada",
 ]);
+const DUPLICATE_BLOCKING_STATUSES = ["pendiente", "confirmada", "realizada"];
 
 const createToken = () => {
   if (typeof randomUUID === "function") return randomUUID();
@@ -236,6 +237,36 @@ export async function POST(request) {
     return buildResponse("invalid", { message: "La fecha u hora no son validas." }, 400);
   }
   const endIso = new Date(new Date(startIso).getTime() + duration * 60000).toISOString();
+
+  const { data: duplicateAppointments, error: duplicateError } = await client
+    .from("citas")
+    .select("uuid")
+    .eq("id_empresa", employeeData.id_empresa)
+    .eq("id_empleado", employeeId)
+    .eq("id_cliente", clientId)
+    .eq("id_servicio", serviceId)
+    .eq("tiempo_inicio", startIso)
+    .in("estado", DUPLICATE_BLOCKING_STATUSES)
+    .limit(1);
+
+  if (duplicateError) {
+    return buildResponse(
+      "error",
+      { message: "No pudimos validar la cita.", details: duplicateError.message },
+      500
+    );
+  }
+
+  if (duplicateAppointments?.length) {
+    return buildResponse(
+      "conflict",
+      {
+        message:
+          "Ya existe una cita para ese cliente, empleado y servicio en ese horario.",
+      },
+      409
+    );
+  }
 
   const weekdayNumber = getWeekdayNumber(dateParts);
   const [scheduleResponse, vacationsResponse] = await Promise.all([

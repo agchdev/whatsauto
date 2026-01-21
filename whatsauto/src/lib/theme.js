@@ -15,6 +15,7 @@ export const applyPalette = (paletteKey) => {
   const selected = getPaletteByKey(paletteKey);
   const root = document.documentElement;
 
+  root.style.setProperty("--color-scheme", selected.scheme || "dark");
   root.style.setProperty("--supabase-green", selected.accent);
   root.style.setProperty("--supabase-green-rgb", selected.accentRgb);
   root.style.setProperty("--supabase-green-dark", selected.accentDark);

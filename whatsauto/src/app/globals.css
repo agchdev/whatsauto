@@ -1,25 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
-  --background: #050906;
-  --foreground: #e6f4ee;
-  --surface: #0c1512;
-  --surface-strong: #10211a;
-  --surface-muted: #0a110e;
-  --border: #1d2c25;
-  --muted: #8ea39a;
-  --muted-strong: #b7c9bf;
-  --supabase-green: #3ecf8e;
-  --supabase-green-rgb: 62 207 142;
-  --supabase-green-dark: #1f9d6b;
-  --supabase-green-bright: #62e6a7;
-  --supabase-ink: #0b1210;
-  --supabase-mist: #0f241c;
-  --theme-glow: #0f241c;
-  --theme-base: #030504;
-  --theme-base-rgb: 3 5 4;
-  --theme-dot-rgb: 62 207 142;
+  color-scheme: var(--color-scheme, light);
+  --color-scheme: light;
+  --background: #f5f9ff;
+  --foreground: #0f1d2b;
+  --surface: #ffffff;
+  --surface-strong: #eaf1fb;
+  --surface-muted: #f0f5fc;
+  --border: #d7e3f3;
+  --muted: #6a7b92;
+  --muted-strong: #3f4f65;
+  --supabase-green: #2f6fed;
+  --supabase-green-rgb: 47 111 237;
+  --supabase-green-dark: #1d53c7;
+  --supabase-green-bright: #5c92ff;
+  --supabase-ink: #0f1d2b;
+  --supabase-mist: #dbe8ff;
+  --theme-glow: #dbe8ff;
+  --theme-base: #e7f1ff;
+  --theme-base-rgb: 231 241 255;
+  --theme-dot-rgb: 47 111 237;
 }
 
 @theme inline {

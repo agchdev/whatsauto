@@ -12,6 +12,7 @@ export const PALETTES = [
   {
     key: "verde",
     label: "Verde",
+    scheme: "dark",
     accent: "#3ecf8e",
     accentRgb: "62 207 142",
     accentDark: "#1f9d6b",
@@ -31,6 +32,7 @@ export const PALETTES = [
   {
     key: "azul",
     label: "Azul",
+    scheme: "dark",
     accent: "#4ea1ff",
     accentRgb: "78 161 255",
     accentDark: "#1e6fd1",
@@ -50,6 +52,7 @@ export const PALETTES = [
   {
     key: "morada",
     label: "Morada",
+    scheme: "dark",
     accent: "#9c6bff",
     accentRgb: "156 107 255",
     accentDark: "#6b3fd6",
@@ -69,6 +72,7 @@ export const PALETTES = [
   {
     key: "roja",
     label: "Roja",
+    scheme: "dark",
     accent: "#ff6b6b",
     accentRgb: "255 107 107",
     accentDark: "#d14a4a",
@@ -88,6 +92,7 @@ export const PALETTES = [
   {
     key: "clara",
     label: "Clara",
+    scheme: "light",
     accent: "#2f9b6b",
     accentRgb: "47 155 107",
     accentDark: "#1f774f",
@@ -104,6 +109,26 @@ export const PALETTES = [
     muted: "#6b7c73",
     mutedStrong: "#47584f",
   },
+  {
+    key: "azul-claro",
+    label: "Azul claro",
+    scheme: "light",
+    accent: "#2f6fed",
+    accentRgb: "47 111 237",
+    accentDark: "#1d53c7",
+    accentBright: "#5c92ff",
+    glow: "#dbe8ff",
+    base: "#e7f1ff",
+    baseRgb: "231 241 255",
+    background: "#f5f9ff",
+    foreground: "#0f1d2b",
+    surface: "#ffffff",
+    surfaceStrong: "#eaf1fb",
+    surfaceMuted: "#f0f5fc",
+    border: "#d7e3f3",
+    muted: "#6a7b92",
+    mutedStrong: "#3f4f65",
+  },
 ];
 
-export const DEFAULT_PALETTE_KEY = "verde";
+export const DEFAULT_PALETTE_KEY = "azul-claro";

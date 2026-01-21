@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { NAV_ITEMS, PALETTES } from "../../constants";
+import { NAV_ITEMS } from "../../constants";
 
 const IconBase = ({ children, className }) => (
   <svg
@@ -108,19 +107,6 @@ const LogoutIcon = ({ className }) => (
   </IconBase>
 );
 
-const SettingsIcon = ({ className }) => (
-  <IconBase className={className}>
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3 1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8 1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1z" />
-  </IconBase>
-);
-
-const ChevronIcon = ({ className }) => (
-  <IconBase className={className}>
-    <path d="M6 9l6 6 6-6" />
-  </IconBase>
-);
-
 const ICONS_BY_KEY = {
   panel: PanelIcon,
   estadisticas: StatsIcon,
@@ -141,18 +127,11 @@ export default function Sidebar({
   onMobileClose,
   onNavigate,
   onToggle,
-  onPaletteChange,
-  paletteKey,
   onSignOut,
 }) {
   const containerPadding = isExpanded ? "md:p-6" : "md:px-4 md:py-6";
   const widthClass = isExpanded ? "md:w-72" : "md:w-20";
   const mobileTransform = isMobileOpen ? "translate-x-0" : "-translate-x-full";
-  const [settingsOpen, setSettingsOpen] = useState(true);
-
-  const handleToggleSettings = () => {
-    setSettingsOpen((prev) => !prev);
-  };
 
   return (
     <>
@@ -239,78 +218,6 @@ export default function Sidebar({
           );
         })}
       </nav>
-
-      <div className="mt-8 border-t border-[color:var(--border)] pt-6">
-        <div className={`${isExpanded ? "" : "md:flex md:flex-col md:items-center"}`}>
-          <button
-            aria-expanded={settingsOpen}
-            className={`flex w-full items-center rounded-2xl border border-[color:var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] ${
-              isExpanded ? "md:justify-between" : "md:justify-center"
-            }`}
-            onClick={handleToggleSettings}
-            title="Ajustes"
-            type="button"
-          >
-            <span className="flex items-center gap-2">
-              <SettingsIcon className="h-4 w-4" />
-              <span className={`${isExpanded ? "md:inline" : "md:hidden"} inline`}>
-                Ajustes
-              </span>
-            </span>
-            <ChevronIcon
-              className={`h-4 w-4 transition ${
-                settingsOpen ? "rotate-180" : ""
-              } ${isExpanded ? "" : "md:hidden"}`}
-            />
-          </button>
-
-          {settingsOpen && (
-            <div
-              className={`mt-4 flex flex-wrap gap-3 ${
-                isExpanded ? "" : "md:flex-col md:items-center"
-              }`}
-            >
-              <p
-                className={`w-full text-xs uppercase tracking-[0.3em] text-[color:var(--muted)] ${
-                  isExpanded ? "md:block" : "md:hidden"
-                } block`}
-              >
-                Paletas
-              </p>
-              {PALETTES.map((palette) => {
-                const isActive = palette.key === paletteKey;
-                return (
-                  <button
-                    key={palette.key}
-                    className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition ${
-                      isExpanded ? "" : "md:justify-center md:px-2"
-                    } ${
-                      isActive
-                        ? "border-[color:var(--supabase-green)] text-[color:var(--supabase-green)]"
-                        : "border-[color:var(--border)] text-[color:var(--muted-strong)] hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
-                    }`}
-                    onClick={() => onPaletteChange(palette.key)}
-                    title={palette.label}
-                    type="button"
-                  >
-                    <span
-                      className={`h-3 w-3 rounded-full ${
-                        isExpanded ? "" : "md:h-4 md:w-4"
-                      }`}
-                      style={{ backgroundColor: palette.accent }}
-                    />
-                    <span
-                      className={`${isExpanded ? "md:inline" : "md:hidden"} inline`}
-                    >
-                      {palette.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
 
       <div className="mt-auto border-t border-[color:var(--border)] pt-6">
         <div className={`${isExpanded ? "md:block" : "md:hidden"} block`}>

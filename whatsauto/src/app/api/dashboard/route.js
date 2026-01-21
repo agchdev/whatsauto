@@ -21,6 +21,7 @@ export async function GET(request) {
   const startOfYear = new Date(now.getFullYear(), 0, 1);
   const endOfYear = new Date(now.getFullYear() + 1, 0, 1);
   const visibleStatuses = ["pendiente", "confirmada", "realizada"];
+  const calendarStatuses = [...visibleStatuses, "rechazada", "cancelada"];
 
   const scopeField = employeeData.role === "boss" ? "id_empresa" : "id_empleado";
   const scopeValue =
@@ -48,7 +49,7 @@ export async function GET(request) {
       "uuid,tiempo_inicio,tiempo_fin,titulo,estado,clientes(nombre,telefono),servicios(nombre,precio)"
     )
     .eq(scopeField, scopeValue)
-    .in("estado", visibleStatuses)
+    .in("estado", calendarStatuses)
     .gte("tiempo_fin", nowIso)
     .order("tiempo_inicio", { ascending: true })
     .limit(10);

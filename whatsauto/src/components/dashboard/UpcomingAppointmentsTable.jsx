@@ -2,17 +2,31 @@ import { useEffect, useMemo, useState } from "react";
 import { formatDateTime } from "../../lib/formatters";
 
 const ITEMS_PER_PAGE = 8;
+const VISIBLE_STATUSES = new Set(["pendiente", "confirmada", "realizada"]);
 
 export default function UpcomingAppointmentsTable({ appointments, isLoading }) {
   const [page, setPage] = useState(1);
-  const hasAppointments = appointments.length > 0;
-  const totalPages = Math.max(1, Math.ceil(appointments.length / ITEMS_PER_PAGE));
+  const filteredAppointments = useMemo(
+    () =>
+      appointments.filter((appointment) => {
+        const status = (appointment?.estado || "").toLowerCase();
+        return VISIBLE_STATUSES.has(status);
+      }),
+    [appointments]
+  );
+  const hasAppointments = filteredAppointments.length > 0;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredAppointments.length / ITEMS_PER_PAGE)
+  );
   const paginatedAppointments = useMemo(() => {
     const start = (page - 1) * ITEMS_PER_PAGE;
-    return appointments.slice(start, start + ITEMS_PER_PAGE);
-  }, [appointments, page]);
-  const rangeStart = appointments.length ? (page - 1) * ITEMS_PER_PAGE + 1 : 0;
-  const rangeEnd = Math.min(page * ITEMS_PER_PAGE, appointments.length);
+    return filteredAppointments.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredAppointments, page]);
+  const rangeStart = filteredAppointments.length
+    ? (page - 1) * ITEMS_PER_PAGE + 1
+    : 0;
+  const rangeEnd = Math.min(page * ITEMS_PER_PAGE, filteredAppointments.length);
   const showPagination = totalPages > 1;
 
   useEffect(() => {
@@ -33,7 +47,7 @@ export default function UpcomingAppointmentsTable({ appointments, isLoading }) {
           </h2>
         </div>
         <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-4 py-2 text-xs font-semibold text-[color:var(--muted-strong)]">
-          {appointments.length}
+          {filteredAppointments.length}
         </span>
       </div>
 
@@ -170,7 +184,7 @@ export default function UpcomingAppointmentsTable({ appointments, isLoading }) {
       {showPagination && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[color:var(--muted)]">
           <span>
-            Mostrando {rangeStart}-{rangeEnd} de {appointments.length}
+            Mostrando {rangeStart}-{rangeEnd} de {filteredAppointments.length}
           </span>
           <div className="flex items-center gap-2">
             <button

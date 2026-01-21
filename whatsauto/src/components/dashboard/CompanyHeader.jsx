@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function CompanyHeader({ companyName, dataLoading }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-4 px-1">
@@ -13,6 +15,12 @@ export default function CompanyHeader({ companyName, dataLoading }) {
         </p>
       </div>
       <div className="flex items-center gap-3">
+        <Link
+          className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+          href="/ajustes"
+        >
+          Ajustes
+        </Link>
         {dataLoading ? (
           <span className="rounded-full border border-[color:rgb(var(--supabase-green-rgb)/0.5)] bg-[color:var(--surface-strong)] px-4 py-2 text-xs font-semibold text-[color:var(--supabase-green)]">
             Actualizando datos...
