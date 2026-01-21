@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { buildResponse, requireAuth, requireEmployee } from "../_helpers";
 
 const WAITLIST_SELECT =
@@ -44,6 +45,12 @@ const ensureEntry = async (client, companyId, entryId) => {
   }
 
   return { data };
+};
+
+const buildConfirmationExpiry = (entry) => {
+  const appointmentStart = entry?.citas?.tiempo_inicio;
+  if (appointmentStart) return appointmentStart;
+  return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 };
 
 export async function POST(request) {
@@ -95,7 +102,32 @@ export async function POST(request) {
     );
   }
 
-  return buildResponse("ok", { entry: data });
+  const token = randomUUID();
+  const expiresAt = buildConfirmationExpiry(data);
+  const { error: confirmationError } = await client
+    .from("confirmaciones_esperas")
+    .insert({
+      id_espera: data.uuid,
+      token_hash: token,
+      expires_at: expiresAt,
+    });
+
+  if (confirmationError) {
+    return buildResponse(
+      "error",
+      {
+        message: "La espera se creo, pero no pudimos generar la confirmacion.",
+        details: confirmationError.message,
+      },
+      500
+    );
+  }
+
+  return buildResponse("ok", {
+    entry: data,
+    token,
+    message: "Espera creada. Confirmacion generada.",
+  });
 }
 
 export async function PATCH(request) {

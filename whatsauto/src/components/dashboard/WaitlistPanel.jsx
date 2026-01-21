@@ -280,11 +280,21 @@ export default function WaitlistPanel({
       });
     }
 
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "";
+    const token = typeof payload.token === "string" ? payload.token : "";
+    if (!editingEntry && token) {
+      setGeneratedLink(origin && token ? `${origin}/espera/${token}` : token);
+      setLinkModalOpen(true);
+    }
+
     setStatus({
       type: "success",
-      message: editingEntry
-        ? "Espera actualizada correctamente."
-        : "Cliente anadido a la lista de espera.",
+      message:
+        payload.message ||
+        (editingEntry
+          ? "Espera actualizada correctamente."
+          : "Cliente anadido a la lista de espera."),
     });
     setIsSaving(false);
     closeModal();

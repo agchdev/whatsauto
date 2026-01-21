@@ -8,6 +8,8 @@ const DEFAULT_TIPO = "confirmar";
 
 const TOKEN_SELECT =
   "uuid,id_cita,token_hash,expires_at,used_at,tipo,citas(estado,tiempo_inicio,tiempo_fin,titulo,descripcion,clientes(nombre,telefono),servicios(nombre,precio))";
+const WAITLIST_TOKEN_SELECT =
+  "uuid,id_espera,token_hash,expires_at,used_at,esperas(estado,id_cita,id_cliente,citas(estado,tiempo_inicio,tiempo_fin,titulo,descripcion,clientes(nombre,telefono),servicios(nombre,precio)),clientes(nombre,telefono))";
 
 const buildResponse = (status, extra = {}) =>
   NextResponse.json({ status, ...extra });
@@ -16,6 +18,8 @@ const normalizeToken = (value) => (typeof value === "string" ? value.trim() : ""
 const normalizeTipo = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : "";
 const resolveTipo = (value) => normalizeTipo(value) || DEFAULT_TIPO;
+const normalizeStatus = (value) =>
+  typeof value === "string" ? value.trim().toLowerCase() : "";
 
 const isExpired = (expiresAt) => {
   if (!expiresAt) return true;
@@ -56,6 +60,25 @@ const fetchConfirmation = async (token, tipo) => {
   return { data, error: null };
 };
 
+const fetchWaitlistConfirmation = async (token) => {
+  const { client, error: clientError } = resolveAdminClient();
+  if (clientError) {
+    return { error: clientError, data: null };
+  }
+
+  const { data, error } = await client
+    .from("confirmaciones_esperas")
+    .select(WAITLIST_TOKEN_SELECT)
+    .eq("token_hash", token)
+    .maybeSingle();
+
+  if (error) {
+    return { error, data: null };
+  }
+
+  return { data, error: null };
+};
+
 const buildAppointmentPayload = (data) => {
   const appointment = data?.citas || {};
 
@@ -68,6 +91,17 @@ const buildAppointmentPayload = (data) => {
     descripcion: appointment?.descripcion || null,
     cliente: appointment?.clientes || null,
     servicio: appointment?.servicios || null,
+  };
+};
+
+const buildWaitlistAppointment = (data) => {
+  const waitlistEntry = data?.esperas || {};
+  const appointment = waitlistEntry?.citas || {};
+  const waitlistClient = waitlistEntry?.clientes || null;
+
+  return {
+    ...appointment,
+    clientes: waitlistClient || appointment?.clientes || null,
   };
 };
 
@@ -84,7 +118,10 @@ export async function GET(request) {
     return buildResponse("invalid", { message: "Tipo de confirmacion no valido." });
   }
 
-  const { data, error } = await fetchConfirmation(token, tipo);
+  const { data, error } =
+    tipo === "espera"
+      ? await fetchWaitlistConfirmation(token)
+      : await fetchConfirmation(token, tipo);
 
   if (error) {
     return buildResponse("error", {
@@ -107,10 +144,13 @@ export async function GET(request) {
     });
   }
 
+  const appointment =
+    tipo === "espera" ? buildWaitlistAppointment(data) : data.citas;
+
   return buildResponse("ok", {
-    appointment: data.citas,
+    appointment,
     tokenId: data.uuid,
-    tipo: data.tipo,
+    tipo,
   });
 }
 
@@ -128,7 +168,10 @@ export async function POST(request) {
     return buildResponse("invalid", { message: "Tipo de confirmacion no valido." });
   }
 
-  const { data, error } = await fetchConfirmation(token, tipo);
+  const { data, error } =
+    tipo === "espera"
+      ? await fetchWaitlistConfirmation(token)
+      : await fetchConfirmation(token, tipo);
 
   if (error) {
     return buildResponse("error", {
@@ -178,6 +221,36 @@ export async function POST(request) {
       if (updateError) {
         return buildResponse("error", {
           message: "No pudimos actualizar la cita.",
+          details: updateError.message,
+        });
+      }
+    }
+  }
+
+  if (tipo === "espera") {
+    if (!data.id_espera) {
+      return buildResponse("error", {
+        message: "No pudimos actualizar la espera.",
+      });
+    }
+
+    const currentState = normalizeStatus(data.esperas?.estado);
+    if (currentState && currentState !== "pendiente") {
+      return buildResponse("locked", {
+        message: "Esta espera ya fue respondida.",
+      });
+    }
+
+    const nextState = action === "confirm" ? "confirmada" : "rechazada";
+    if (currentState !== nextState) {
+      const { error: updateError } = await client
+        .from("esperas")
+        .update({ estado: nextState })
+        .eq("uuid", data.id_espera);
+
+      if (updateError) {
+        return buildResponse("error", {
+          message: "No pudimos actualizar la espera.",
           details: updateError.message,
         });
       }
@@ -241,8 +314,10 @@ export async function POST(request) {
     webhookEvent = "appointment_time_change_confirmed";
   }
 
+  const confirmationTable =
+    tipo === "espera" ? "confirmaciones_esperas" : "confirmaciones";
   const { error: confirmationError } = await client
-    .from("confirmaciones")
+    .from(confirmationTable)
     .update({ used_at: new Date().toISOString() })
     .eq("uuid", data.uuid)
     .is("used_at", null);
