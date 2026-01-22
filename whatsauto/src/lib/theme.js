@@ -2,6 +2,21 @@ import { DEFAULT_PALETTE_KEY, PALETTES } from "../constants";
 
 export const THEME_STORAGE_KEY = "welyd.palette";
 
+const updateFavicon = (logoPath) => {
+  if (typeof document === "undefined") return;
+  const href = logoPath || "/logoWelydAzul.png";
+  let icon = document.querySelector('link[rel="icon"]');
+
+  if (!icon) {
+    icon = document.createElement("link");
+    icon.rel = "icon";
+    icon.type = "image/png";
+    document.head.appendChild(icon);
+  }
+
+  icon.href = href;
+};
+
 const getPaletteByKey = (paletteKey) => {
   const fallback =
     PALETTES.find((palette) => palette.key === DEFAULT_PALETTE_KEY) || PALETTES[0];
@@ -14,6 +29,7 @@ export const applyPalette = (paletteKey) => {
 
   const selected = getPaletteByKey(paletteKey);
   const root = document.documentElement;
+  const logoPath = selected.logo || "/logoWelydAzul.png";
 
   root.style.setProperty("--color-scheme", selected.scheme || "dark");
   root.style.setProperty("--supabase-green", selected.accent);
@@ -33,6 +49,9 @@ export const applyPalette = (paletteKey) => {
   root.style.setProperty("--border", selected.border);
   root.style.setProperty("--muted", selected.muted);
   root.style.setProperty("--muted-strong", selected.mutedStrong);
+  root.style.setProperty("--welyd-logo-url", `url("${logoPath}")`);
+
+  updateFavicon(logoPath);
 
   return selected.key;
 };

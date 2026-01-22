@@ -1,9 +1,17 @@
+import ThemeLogo from "../branding/ThemeLogo";
+
 export default function LoginHero() {
   return (
     <section className="space-y-8">
-      <div className="inline-flex items-center gap-2 rounded-full border border-[color:rgb(var(--supabase-green-rgb)/0.35)] bg-[color:var(--surface)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-[color:var(--muted-strong)] shadow-sm backdrop-blur motion-safe:animate-[reveal_0.7s_ease-out_both]">
-        <span className="h-2 w-2 rounded-full bg-[color:var(--supabase-green)] shadow-[0_0_16px_rgba(62,207,142,0.8)]" />
-        Supabase ready
+      <div className="space-y-4">
+        <ThemeLogo
+          className="h-12 w-12 motion-safe:animate-[reveal_0.7s_ease-out_both]"
+          label="WeLyd"
+        />
+        <div className="inline-flex items-center gap-2 rounded-full border border-[color:rgb(var(--supabase-green-rgb)/0.35)] bg-[color:var(--surface)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-[color:var(--muted-strong)] shadow-sm backdrop-blur motion-safe:animate-[reveal_0.7s_ease-out_both]">
+          <span className="h-2 w-2 rounded-full bg-[color:var(--supabase-green)] shadow-[0_0_16px_rgba(62,207,142,0.8)]" />
+          Supabase ready
+        </div>
       </div>
 
       <div className="space-y-4 motion-safe:animate-[reveal_0.9s_ease-out_both] motion-safe:[animation-delay:120ms]">

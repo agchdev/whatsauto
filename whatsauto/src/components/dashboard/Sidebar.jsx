@@ -1,6 +1,7 @@
 "use client";
 
 import { NAV_ITEMS } from "../../constants";
+import ThemeLogo from "../branding/ThemeLogo";
 
 const IconBase = ({ children, className }) => (
   <svg
@@ -16,13 +17,6 @@ const IconBase = ({ children, className }) => (
   >
     {children}
   </svg>
-);
-
-const LogoIcon = ({ className }) => (
-  <IconBase className={className}>
-    <path d="M12 2l7 4v8l-7 4-7-4V6z" />
-    <path d="M12 6l4 2.3v4.6L12 15l-4-2.1V8.3z" />
-  </IconBase>
 );
 
 const ToggleIcon = ({ className }) => (
@@ -152,9 +146,7 @@ export default function Sidebar({
         <div
           className={`flex items-center gap-3 ${isExpanded ? "" : "md:flex-col"}`}
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)]">
-            <LogoIcon className="h-5 w-5 text-[color:var(--supabase-green)]" />
-          </div>
+          <ThemeLogo className="h-10 w-10" label="WeLyd" />
           <div className={`${isExpanded ? "md:block" : "md:hidden"} block`}>
               <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--muted)]">
                 WeLyd

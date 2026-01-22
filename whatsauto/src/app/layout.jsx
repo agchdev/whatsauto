@@ -15,6 +15,9 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata = {
   title: "WeLyd | Acceso",
   description: "Accede a WeLyd con autenticacion de Supabase.",
+  icons: {
+    icon: "/logoWelydAzul.png",
+  },
 };
 
 export default function RootLayout({ children }) {

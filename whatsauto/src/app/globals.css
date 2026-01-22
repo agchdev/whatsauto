@@ -21,6 +21,7 @@
   --theme-base: #e7f1ff;
   --theme-base-rgb: 231 241 255;
   --theme-dot-rgb: 47 111 237;
+  --welyd-logo-url: url("/logoWelydAzul.png");
 }
 
 @theme inline {
