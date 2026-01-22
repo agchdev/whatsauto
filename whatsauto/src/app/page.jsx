@@ -2,18 +2,24 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import AuthLoading from "../components/auth/AuthLoading";
+import CompanyPasswordView from "../components/auth/CompanyPasswordView";
 import LoginView from "../components/auth/LoginView";
 import DashboardView from "../components/dashboard/DashboardView";
 import { fetchDashboardData } from "../lib/dashboardData";
 import { getSupabaseClient } from "../lib/supabaseClient";
 
 const initialStatus = { type: "idle", message: "" };
+const COMPANY_PASSWORD_KEY = "welyd.company-password";
 
 export default function Home() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState(initialStatus);
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(false);
+  const [companyPassword, setCompanyPassword] = useState("");
+  const [companyPasswordStatus, setCompanyPasswordStatus] =
+    useState(initialStatus);
+  const [companyVerified, setCompanyVerified] = useState(false);
   const [companyName, setCompanyName] = useState("");
   const [employee, setEmployee] = useState(null);
   const [summary, setSummary] = useState({
@@ -80,13 +86,34 @@ export default function Home() {
   }, [resolveClient]);
 
   useEffect(() => {
+    if (!session) {
+      setCompanyPassword("");
+      setCompanyPasswordStatus(initialStatus);
+      setCompanyVerified(false);
+      return;
+    }
+
+    const storageKey = session?.user?.id
+      ? `${COMPANY_PASSWORD_KEY}:${session.user.id}`
+      : COMPANY_PASSWORD_KEY;
+    const stored =
+      typeof window !== "undefined"
+        ? window.sessionStorage.getItem(storageKey)
+        : null;
+
+    setCompanyPassword("");
+    setCompanyPasswordStatus(initialStatus);
+    setCompanyVerified(stored === "true");
+  }, [session]);
+
+  useEffect(() => {
     return () => {
       mountedRef.current = false;
     };
   }, []);
 
   const refreshDashboardData = useCallback(async () => {
-    if (!session || !mountedRef.current) return;
+    if (!session || !companyVerified || !mountedRef.current) return;
     setDataLoading(true);
     setDataError("");
 
@@ -108,10 +135,10 @@ export default function Home() {
     setStatsAppointments(result.statsAppointments);
     setDataError(result.error);
     setDataLoading(false);
-  }, [resolveClient, session]);
+  }, [companyVerified, resolveClient, session]);
 
   useEffect(() => {
-    if (!session) {
+    if (!session || !companyVerified) {
       setCompanyName("");
       setEmployee(null);
       setSummary({
@@ -133,7 +160,7 @@ export default function Home() {
     }
 
     refreshDashboardData();
-  }, [session, refreshDashboardData]);
+  }, [companyVerified, session, refreshDashboardData]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -182,10 +209,11 @@ export default function Home() {
 
   const isLoading = status.type === "loading";
   const hasSession = Boolean(session);
+  const hasCompanyAccess = hasSession && companyVerified;
   const userEmail = session?.user?.email ?? "Equipo";
   const mainAlignment =
-    !authReady || !hasSession ? "items-center" : "items-stretch";
-  const mainClassName = hasSession
+    !authReady || !hasCompanyAccess ? "items-center" : "items-stretch";
+  const mainClassName = hasCompanyAccess
     ? "relative flex min-h-screen w-full px-0 py-0"
     : `relative mx-auto flex min-h-screen max-w-6xl px-6 py-12 sm:py-16 ${mainAlignment}`;
   const companyDisplayName = companyName || "Empresa";
@@ -203,9 +231,67 @@ export default function Home() {
   };
 
   const handleSignOut = async () => {
+    const storageKey = session?.user?.id
+      ? `${COMPANY_PASSWORD_KEY}:${session.user.id}`
+      : COMPANY_PASSWORD_KEY;
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(storageKey);
+    }
     const { client } = resolveClient();
     if (!client) return;
     await client.auth.signOut();
+  };
+
+  const handleCompanyPasswordSubmit = async (event) => {
+    event.preventDefault();
+    const trimmedPassword = companyPassword.trim();
+
+    if (!trimmedPassword) {
+      setCompanyPasswordStatus({
+        type: "error",
+        message: "Escribe la contrasena de la empresa.",
+      });
+      return;
+    }
+
+    if (!session?.access_token) {
+      setCompanyPasswordStatus({
+        type: "error",
+        message: "Sesion invalida. Inicia sesion otra vez.",
+      });
+      return;
+    }
+
+    setCompanyPasswordStatus({ type: "loading", message: "" });
+
+    const response = await fetch("/api/company/password", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password: trimmedPassword }),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok || payload.status !== "ok") {
+      setCompanyPasswordStatus({
+        type: "error",
+        message: payload.message || "No pudimos validar la contrasena.",
+      });
+      return;
+    }
+
+    const storageKey = session?.user?.id
+      ? `${COMPANY_PASSWORD_KEY}:${session.user.id}`
+      : COMPANY_PASSWORD_KEY;
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(storageKey, "true");
+    }
+
+    setCompanyVerified(true);
+    setCompanyPassword("");
+    setCompanyPasswordStatus(initialStatus);
   };
 
   return (
@@ -219,7 +305,7 @@ export default function Home() {
       <main className={mainClassName}>
         {!authReady ? (
           <AuthLoading />
-        ) : hasSession ? (
+        ) : hasCompanyAccess ? (
           <DashboardView
             activeKey="panel"
             companyName={companyDisplayName}
@@ -237,6 +323,15 @@ export default function Home() {
             summary={summary}
             services={services}
             upcomingAppointments={upcomingAppointments}
+          />
+        ) : hasSession ? (
+          <CompanyPasswordView
+            isLoading={companyPasswordStatus.type === "loading"}
+            onPasswordChange={(event) => setCompanyPassword(event.target.value)}
+            onSignOut={handleSignOut}
+            onSubmit={handleCompanyPasswordSubmit}
+            password={companyPassword}
+            status={companyPasswordStatus}
           />
         ) : (
           <LoginView

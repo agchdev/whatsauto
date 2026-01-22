@@ -157,7 +157,7 @@ export default function Sidebar({
           </div>
           <div className={`${isExpanded ? "md:block" : "md:hidden"} block`}>
               <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--muted)]">
-                WhatsAuto
+                WeLyd
               </p>
               <p className="mt-1 text-lg font-semibold text-[color:var(--foreground)]">
                 Panel

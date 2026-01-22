@@ -8,7 +8,7 @@ export default function LoginHero() {
 
       <div className="space-y-4 motion-safe:animate-[reveal_0.9s_ease-out_both] motion-safe:[animation-delay:120ms]">
         <h1 className="text-4xl font-semibold tracking-tight text-[color:var(--foreground)] sm:text-5xl">
-          WhatsAuto
+          WeLyd
           <span className="block text-[color:var(--supabase-green)]">
             agenda inteligente
           </span>

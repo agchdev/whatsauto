@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import AuthLoading from "../../components/auth/AuthLoading";
+import CompanyPasswordView from "../../components/auth/CompanyPasswordView";
 import LoginView from "../../components/auth/LoginView";
 import { DEFAULT_PALETTE_KEY, PALETTES } from "../../constants";
 import {
@@ -14,12 +15,17 @@ import {
 import { getSupabaseClient } from "../../lib/supabaseClient";
 
 const initialStatus = { type: "idle", message: "" };
+const COMPANY_PASSWORD_KEY = "welyd.company-password";
 
 export default function AjustesPage() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState(initialStatus);
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(false);
+  const [companyPassword, setCompanyPassword] = useState("");
+  const [companyPasswordStatus, setCompanyPasswordStatus] =
+    useState(initialStatus);
+  const [companyVerified, setCompanyVerified] = useState(false);
   const [paletteKey, setPaletteKey] = useState(() => loadStoredPalette());
 
   const resolveClient = useCallback(() => {
@@ -87,6 +93,27 @@ export default function AjustesPage() {
     };
   }, [resolveClient]);
 
+  useEffect(() => {
+    if (!session) {
+      setCompanyPassword("");
+      setCompanyPasswordStatus(initialStatus);
+      setCompanyVerified(false);
+      return;
+    }
+
+    const storageKey = session?.user?.id
+      ? `${COMPANY_PASSWORD_KEY}:${session.user.id}`
+      : COMPANY_PASSWORD_KEY;
+    const stored =
+      typeof window !== "undefined"
+        ? window.sessionStorage.getItem(storageKey)
+        : null;
+
+    setCompanyPassword("");
+    setCompanyPasswordStatus(initialStatus);
+    setCompanyVerified(stored === "true");
+  }, [session]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     const trimmedEmail = email.trim();
@@ -133,13 +160,72 @@ export default function AjustesPage() {
   };
 
   const handleSignOut = async () => {
+    const storageKey = session?.user?.id
+      ? `${COMPANY_PASSWORD_KEY}:${session.user.id}`
+      : COMPANY_PASSWORD_KEY;
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(storageKey);
+    }
     const { client } = resolveClient();
     if (!client) return;
     await client.auth.signOut();
   };
 
+  const handleCompanyPasswordSubmit = async (event) => {
+    event.preventDefault();
+    const trimmedPassword = companyPassword.trim();
+
+    if (!trimmedPassword) {
+      setCompanyPasswordStatus({
+        type: "error",
+        message: "Escribe la contrasena de la empresa.",
+      });
+      return;
+    }
+
+    if (!session?.access_token) {
+      setCompanyPasswordStatus({
+        type: "error",
+        message: "Sesion invalida. Inicia sesion otra vez.",
+      });
+      return;
+    }
+
+    setCompanyPasswordStatus({ type: "loading", message: "" });
+
+    const response = await fetch("/api/company/password", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password: trimmedPassword }),
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok || payload.status !== "ok") {
+      setCompanyPasswordStatus({
+        type: "error",
+        message: payload.message || "No pudimos validar la contrasena.",
+      });
+      return;
+    }
+
+    const storageKey = session?.user?.id
+      ? `${COMPANY_PASSWORD_KEY}:${session.user.id}`
+      : COMPANY_PASSWORD_KEY;
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(storageKey, "true");
+    }
+
+    setCompanyVerified(true);
+    setCompanyPassword("");
+    setCompanyPasswordStatus(initialStatus);
+  };
+
   const isLoading = status.type === "loading";
   const hasSession = Boolean(session);
+  const hasCompanyAccess = hasSession && companyVerified;
   const activePalette =
     PALETTES.find((palette) => palette.key === paletteKey) || PALETTES[0];
 
@@ -154,7 +240,7 @@ export default function AjustesPage() {
       <main className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-12 sm:py-16">
         {!authReady ? (
           <AuthLoading />
-        ) : hasSession ? (
+        ) : hasCompanyAccess ? (
           <div className="flex flex-col gap-8">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -257,11 +343,20 @@ export default function AjustesPage() {
               </div>
             </section>
           </div>
+        ) : hasSession ? (
+          <CompanyPasswordView
+            isLoading={companyPasswordStatus.type === "loading"}
+            onPasswordChange={(event) => setCompanyPassword(event.target.value)}
+            onSignOut={handleSignOut}
+            onSubmit={handleCompanyPasswordSubmit}
+            password={companyPassword}
+            status={companyPasswordStatus}
+          />
         ) : (
           <LoginView
             email={email}
             isLoading={isLoading}
-            onEmailChange={setEmail}
+            onEmailChange={(event) => setEmail(event.target.value)}
             onSubmit={handleSubmit}
             status={status}
           />

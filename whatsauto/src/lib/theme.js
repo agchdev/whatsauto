@@ -1,6 +1,6 @@
 import { DEFAULT_PALETTE_KEY, PALETTES } from "../constants";
 
-export const THEME_STORAGE_KEY = "whatsauto.palette";
+export const THEME_STORAGE_KEY = "welyd.palette";
 
 const getPaletteByKey = (paletteKey) => {
   const fallback =

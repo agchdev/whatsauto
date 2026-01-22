@@ -13,8 +13,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: "WhatsAuto | Acceso",
-  description: "Accede a WhatsAuto con autenticacion de Supabase.",
+  title: "WeLyd | Acceso",
+  description: "Accede a WeLyd con autenticacion de Supabase.",
 };
 
 export default function RootLayout({ children }) {

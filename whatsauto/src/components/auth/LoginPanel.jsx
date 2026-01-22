@@ -13,7 +13,7 @@ export default function LoginPanel({ email, status, isLoading, onEmailChange, on
               Inicia sesion con tu correo
             </h2>
             <p className="mt-2 text-sm text-[color:var(--muted)]">
-              Te enviaremos un enlace seguro para entrar sin contrasena.
+              Te enviaremos un enlace seguro. Al entrar validaras la contrasena de la empresa.
             </p>
           </div>
           <span className="rounded-full bg-[color:var(--surface-strong)] px-3 py-1 text-xs font-semibold text-[color:var(--muted-strong)]">
