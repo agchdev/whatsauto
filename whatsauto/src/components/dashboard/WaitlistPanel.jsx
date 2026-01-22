@@ -75,6 +75,28 @@ const getAssignButtonClass = (canAssign) =>
     canAssign ? ASSIGN_BUTTON_STYLES.available : ASSIGN_BUTTON_STYLES.unavailable
   }`;
 
+const buildFilterOptions = (entries, type) => {
+  const options = new Map();
+
+  entries.forEach((entry) => {
+    const appointment = entry?.citas;
+    if (!appointment) return;
+    const id =
+      type === "service" ? appointment?.id_servicio : appointment?.id_empleado;
+    const name =
+      type === "service"
+        ? appointment?.servicios?.nombre
+        : appointment?.empleados?.nombre;
+
+    if (!id || options.has(id)) return;
+    options.set(id, name || "Sin nombre");
+  });
+
+  return Array.from(options.entries())
+    .map(([id, name]) => ({ id, name }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+};
+
 export default function WaitlistPanel({
   accessToken,
   waitlist = [],
@@ -96,14 +118,36 @@ export default function WaitlistPanel({
   const [generatedLink, setGeneratedLink] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
   const [waitlistPage, setWaitlistPage] = useState(1);
+  const [serviceFilter, setServiceFilter] = useState("");
+  const [employeeFilter, setEmployeeFilter] = useState("");
 
   useEffect(() => {
     setWaitlistEntries(waitlist);
   }, [waitlist]);
 
-  const orderedWaitlist = useMemo(
-    () => [...waitlistEntries].sort(sortByCreated),
+  const serviceOptions = useMemo(
+    () => buildFilterOptions(waitlistEntries, "service"),
     [waitlistEntries]
+  );
+  const employeeOptions = useMemo(
+    () => buildFilterOptions(waitlistEntries, "employee"),
+    [waitlistEntries]
+  );
+  const filteredWaitlist = useMemo(() => {
+    if (!serviceFilter && !employeeFilter) return waitlistEntries;
+    return waitlistEntries.filter((entry) => {
+      const appointment = entry?.citas;
+      if (!appointment) return false;
+      const matchesService =
+        !serviceFilter || appointment?.id_servicio === serviceFilter;
+      const matchesEmployee =
+        !employeeFilter || appointment?.id_empleado === employeeFilter;
+      return matchesService && matchesEmployee;
+    });
+  }, [waitlistEntries, serviceFilter, employeeFilter]);
+  const orderedWaitlist = useMemo(
+    () => [...filteredWaitlist].sort(sortByCreated),
+    [filteredWaitlist]
   );
   const waitlistTotalPages = Math.max(
     1,
@@ -127,6 +171,30 @@ export default function WaitlistPanel({
       setWaitlistPage(waitlistTotalPages);
     }
   }, [waitlistPage, waitlistTotalPages]);
+
+  useEffect(() => {
+    if (serviceFilter) {
+      const isValid = serviceOptions.some((option) => option.id === serviceFilter);
+      if (!isValid) {
+        setServiceFilter("");
+      }
+    }
+  }, [serviceFilter, serviceOptions]);
+
+  useEffect(() => {
+    if (employeeFilter) {
+      const isValid = employeeOptions.some(
+        (option) => option.id === employeeFilter
+      );
+      if (!isValid) {
+        setEmployeeFilter("");
+      }
+    }
+  }, [employeeFilter, employeeOptions]);
+
+  useEffect(() => {
+    setWaitlistPage(1);
+  }, [serviceFilter, employeeFilter]);
 
   const ensureAppointmentOptions = async (currentAppointment) => {
     if (optionsLoading) return [];
@@ -412,6 +480,15 @@ export default function WaitlistPanel({
     onRefresh?.();
   };
 
+  const hasActiveFilters = Boolean(serviceFilter || employeeFilter);
+  const totalWaitlistCount = waitlistEntries.length;
+  const waitlistCountLabel =
+    hasActiveFilters && totalWaitlistCount
+      ? `${orderedWaitlist.length} / ${totalWaitlistCount}`
+      : `${totalWaitlistCount}`;
+  const emptyMessage = hasActiveFilters
+    ? "No hay resultados para los filtros seleccionados."
+    : "No hay clientes en lista de espera.";
   const hasWaitlist = orderedWaitlist.length > 0;
 
   return (
@@ -427,7 +504,7 @@ export default function WaitlistPanel({
         </div>
         <div className="flex items-center gap-3">
           <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-4 py-2 text-xs font-semibold text-[color:var(--muted-strong)]">
-            {waitlistEntries.length}
+            {waitlistCountLabel}
           </span>
           <button
             className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
@@ -452,6 +529,52 @@ export default function WaitlistPanel({
           {status.message}
         </div>
       )}
+
+      <div className="mt-6 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <label className="flex min-w-[200px] flex-1 flex-col text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted)]">
+            <span>Servicio</span>
+            <select
+              className="mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.3)] normal-case"
+              onChange={(event) => setServiceFilter(event.target.value)}
+              value={serviceFilter}
+            >
+              <option value="">Todos</option>
+              {serviceOptions.map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex min-w-[200px] flex-1 flex-col text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted)]">
+            <span>Empleado</span>
+            <select
+              className="mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-sm text-[color:var(--foreground)] outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.3)] normal-case"
+              onChange={(event) => setEmployeeFilter(event.target.value)}
+              value={employeeFilter}
+            >
+              <option value="">Todos</option>
+              {employeeOptions.map((employeeOption) => (
+                <option key={employeeOption.id} value={employeeOption.id}>
+                  {employeeOption.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="rounded-full border border-[color:var(--border)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!hasActiveFilters}
+            onClick={() => {
+              setServiceFilter("");
+              setEmployeeFilter("");
+            }}
+            type="button"
+          >
+            Limpiar filtros
+          </button>
+        </div>
+      </div>
 
       <div className="mt-6">
         <div className="space-y-3 md:hidden">
@@ -574,7 +697,7 @@ export default function WaitlistPanel({
             })
           ) : (
             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--muted)]">
-              No hay clientes en lista de espera.
+              {emptyMessage}
             </div>
           )}
         </div>
@@ -727,7 +850,7 @@ export default function WaitlistPanel({
             ) : (
               <tr>
                 <td className="px-2 py-4 text-[color:var(--muted)]" colSpan={7}>
-                  No hay clientes en lista de espera.
+                  {emptyMessage}
                 </td>
               </tr>
             )}

@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { buildResponse, requireAuth, requireEmployee } from "../_helpers";
 
 const WAITLIST_SELECT =
-  "uuid,id_cita,id_cliente,estado,created_at,citas!inner(uuid,tiempo_inicio,tiempo_fin,estado,titulo,empleados(nombre),servicios(nombre)),clientes(uuid,nombre,telefono)";
+  "uuid,id_cita,id_cliente,estado,created_at,citas!inner(uuid,tiempo_inicio,tiempo_fin,estado,titulo,id_empleado,id_servicio,empleados(nombre),servicios(nombre)),clientes(uuid,nombre,telefono)";
 
 const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";

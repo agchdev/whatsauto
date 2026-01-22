@@ -108,6 +108,9 @@ const buildWaitlistAppointment = (data) => {
   };
 };
 
+const formatWaitlistTitle = (serviceName, clientName) =>
+  [serviceName, clientName].filter(Boolean).join(" - ");
+
 const cleanupDuplicateAppointments = async (client, appointmentId, appointment) => {
   if (!appointmentId || !appointment) return { skipped: true };
   const { id_empresa, id_empleado, id_servicio, tiempo_inicio } = appointment;
@@ -257,6 +260,7 @@ export async function POST(request) {
   let waitlistClientIds = [];
   let waitlistClientPhones = [];
   let waitlistClients = [];
+  let waitlistClientTitles = [];
   let shouldDeleteWaitlist = false;
 
   if (tipo === "confirmar") {
@@ -342,7 +346,7 @@ export async function POST(request) {
 
     const { data: waitlistEntries, error: waitlistFetchError } = await client
       .from("esperas")
-      .select("id_cliente,clientes(telefono)")
+      .select("id_cliente,clientes(nombre,telefono)")
       .eq("id_cita", data.id_cita);
 
     if (waitlistFetchError) {
@@ -352,15 +356,24 @@ export async function POST(request) {
       });
     }
 
+    const serviceName = data?.citas?.servicios?.nombre || null;
     waitlistClients = (waitlistEntries || [])
-      .map((entry) => ({
-        id: entry?.id_cliente || null,
-        telefono: entry?.clientes?.telefono || null,
-      }))
+      .map((entry) => {
+        const clientName = entry?.clientes?.nombre || null;
+        return {
+          id: entry?.id_cliente || null,
+          telefono: entry?.clientes?.telefono || null,
+          nombre: clientName,
+          titulo: formatWaitlistTitle(serviceName, clientName),
+        };
+      })
       .filter((client) => client.id);
 
     waitlistClientIds = waitlistClients.map((client) => client.id);
     waitlistClientPhones = waitlistClients.map((client) => client.telefono);
+    waitlistClientTitles = waitlistClients
+      .map((client) => client.titulo)
+      .filter(Boolean);
 
     const { error: updateError } = await client
       .from("citas")
@@ -440,6 +453,7 @@ export async function POST(request) {
       waitlist_client_ids: waitlistClientIds,
       waitlist_client_phones: waitlistClientPhones,
       waitlist_clients: waitlistClients,
+      waitlist_titles: waitlistClientTitles,
       waitlist_count: waitlistClientIds.length,
     });
   }
