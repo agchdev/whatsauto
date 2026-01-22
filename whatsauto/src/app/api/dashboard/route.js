@@ -97,7 +97,7 @@ export async function GET(request) {
   const waitlistPromise = client
     .from("esperas")
     .select(
-      "uuid,id_cita,id_cliente,created_at,citas!inner(uuid,tiempo_inicio,tiempo_fin,estado,titulo,empleados(nombre),servicios(nombre)),clientes(uuid,nombre,telefono)"
+      "uuid,id_cita,id_cliente,estado,created_at,citas!inner(uuid,tiempo_inicio,tiempo_fin,estado,titulo,empleados(nombre),servicios(nombre)),clientes(uuid,nombre,telefono)"
     )
     .eq("citas.id_empresa", employeeData.id_empresa)
     .order("created_at", { ascending: false });

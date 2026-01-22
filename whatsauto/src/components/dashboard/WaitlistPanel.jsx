@@ -16,6 +16,11 @@ const STATE_LABELS = {
   cancelada: "Cliente original se quito",
   realizada: "Cita realizada",
 };
+const WAITLIST_STATUS_LABELS = {
+  pendiente: "Pendiente",
+  confirmada: "Confirmada",
+  rechazada: "Rechazada",
+};
 const ASSIGN_BUTTON_STYLES = {
   available:
     "border-[color:var(--supabase-green)] bg-[color:rgb(var(--supabase-green-rgb)/0.18)] text-[color:var(--supabase-green)] hover:bg-[color:rgb(var(--supabase-green-rgb)/0.28)]",
@@ -466,6 +471,9 @@ export default function WaitlistPanel({
                 normalizeStatus(appointment?.estado) || "pendiente";
               const originalLabel =
                 STATE_LABELS[rawStatus] || "Estado desconocido";
+              const waitStatus = normalizeStatus(entry?.estado) || "pendiente";
+              const waitStatusLabel =
+                WAITLIST_STATUS_LABELS[waitStatus] || waitStatus;
               const canAssign = AVAILABLE_STATES.has(rawStatus);
               const assignTitle = canAssign
                 ? "Disponible para pasar a cita"
@@ -524,6 +532,14 @@ export default function WaitlistPanel({
                         Estado cita: {rawStatus}
                       </p>
                     </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                        Estado espera
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[color:var(--foreground)]">
+                        {waitStatusLabel}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -570,6 +586,7 @@ export default function WaitlistPanel({
               <col className="w-[280px]" />
               <col className="w-[140px]" />
               <col className="w-[220px]" />
+              <col className="w-[140px]" />
               <col className="w-[150px]" />
               <col className="w-[220px]" />
             </colgroup>
@@ -588,6 +605,9 @@ export default function WaitlistPanel({
                 Cliente original
               </th>
               <th className="px-2 pb-3" scope="col">
+                Estado espera
+              </th>
+              <th className="px-2 pb-3" scope="col">
                 Creada
               </th>
               <th className="px-2 pb-3 text-right" scope="col">
@@ -598,7 +618,7 @@ export default function WaitlistPanel({
           <tbody>
             {isLoading ? (
               <tr>
-                <td className="px-2 py-4 text-[color:var(--muted)]" colSpan={6}>
+                <td className="px-2 py-4 text-[color:var(--muted)]" colSpan={7}>
                   Cargando lista de espera...
                 </td>
               </tr>
@@ -611,6 +631,9 @@ export default function WaitlistPanel({
                 const employeeName = appointment?.empleados?.nombre || "Sin empleado";
                 const rawStatus = normalizeStatus(appointment?.estado) || "pendiente";
                 const originalLabel = STATE_LABELS[rawStatus] || "Estado desconocido";
+                const waitStatus = normalizeStatus(entry?.estado) || "pendiente";
+                const waitStatusLabel =
+                  WAITLIST_STATUS_LABELS[waitStatus] || waitStatus;
                 const canAssign = AVAILABLE_STATES.has(rawStatus);
 
                 return (
@@ -657,6 +680,11 @@ export default function WaitlistPanel({
                         </div>
                       </div>
                     </td>
+                    <td className="px-2 py-4 text-[color:var(--muted-strong)]">
+                      <span className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface-strong)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--muted-strong)]">
+                        {waitStatusLabel}
+                      </span>
+                    </td>
                     <td className="px-2 py-4 text-[color:var(--muted-strong)] whitespace-nowrap">
                       {formatDateTime(entry?.created_at)}
                     </td>
@@ -698,7 +726,7 @@ export default function WaitlistPanel({
               })
             ) : (
               <tr>
-                <td className="px-2 py-4 text-[color:var(--muted)]" colSpan={6}>
+                <td className="px-2 py-4 text-[color:var(--muted)]" colSpan={7}>
                   No hay clientes en lista de espera.
                 </td>
               </tr>

@@ -7,7 +7,7 @@ const VALID_TIPOS = new Set(["confirmar", "eliminar", "espera", "modificar"]);
 const DEFAULT_TIPO = "confirmar";
 
 const TOKEN_SELECT =
-  "uuid,id_cita,token_hash,expires_at,used_at,tipo,citas(estado,tiempo_inicio,tiempo_fin,titulo,descripcion,clientes(nombre,telefono),servicios(nombre,precio))";
+  "uuid,id_cita,token_hash,expires_at,used_at,tipo,citas(id_empresa,id_empleado,id_servicio,id_cliente,estado,tiempo_inicio,tiempo_fin,titulo,descripcion,clientes(nombre,telefono),servicios(nombre,precio))";
 const WAITLIST_TOKEN_SELECT =
   "uuid,id_espera,token_hash,expires_at,used_at,esperas(estado,id_cita,id_cliente,citas(estado,tiempo_inicio,tiempo_fin,titulo,descripcion,clientes(nombre,telefono),servicios(nombre,precio)),clientes(nombre,telefono))";
 
@@ -84,6 +84,9 @@ const buildAppointmentPayload = (data) => {
 
   return {
     id: data?.id_cita || null,
+    id_empleado: appointment?.id_empleado || null,
+    id_servicio: appointment?.id_servicio || null,
+    id_cliente: appointment?.id_cliente || null,
     estado: appointment?.estado || null,
     tiempo_inicio: appointment?.tiempo_inicio || null,
     tiempo_fin: appointment?.tiempo_fin || null,
@@ -103,6 +106,31 @@ const buildWaitlistAppointment = (data) => {
     ...appointment,
     clientes: waitlistClient || appointment?.clientes || null,
   };
+};
+
+const cleanupDuplicateAppointments = async (client, appointmentId, appointment) => {
+  if (!appointmentId || !appointment) return { skipped: true };
+  const { id_empresa, id_empleado, id_servicio, tiempo_inicio } = appointment;
+  if (!id_empresa || !id_empleado || !id_servicio || !tiempo_inicio) {
+    return { skipped: true };
+  }
+
+  const parsedStart = new Date(tiempo_inicio);
+  const startValue = Number.isNaN(parsedStart.getTime())
+    ? tiempo_inicio
+    : parsedStart.toISOString();
+
+  const { error } = await client
+    .from("citas")
+    .delete()
+    .eq("id_empresa", id_empresa)
+    .eq("id_empleado", id_empleado)
+    .eq("id_servicio", id_servicio)
+    .eq("tiempo_inicio", startValue)
+    .in("estado", ["pendiente", "cancelada"])
+    .neq("uuid", appointmentId);
+
+  return { error };
 };
 
 export async function GET(request) {
@@ -142,6 +170,29 @@ export async function GET(request) {
     return buildResponse("expired", {
       message: "El enlace de confirmacion ha expirado.",
     });
+  }
+
+  if (tipo === "confirmar") {
+    const { client, error: clientError } = resolveAdminClient();
+    if (clientError) {
+      return buildResponse("error", {
+        message: "No pudimos validar la cita.",
+        details: clientError?.message,
+      });
+    }
+
+    const cleanupResult = await cleanupDuplicateAppointments(
+      client,
+      data.id_cita,
+      data.citas
+    );
+
+    if (cleanupResult?.error) {
+      return buildResponse("error", {
+        message: "No pudimos limpiar las citas duplicadas.",
+        details: cleanupResult.error.message,
+      });
+    }
   }
 
   const appointment =
@@ -202,6 +253,12 @@ export async function POST(request) {
     });
   }
 
+  let webhookEvent = "";
+  let waitlistClientIds = [];
+  let waitlistClientPhones = [];
+  let waitlistClients = [];
+  let shouldDeleteWaitlist = false;
+
   if (tipo === "confirmar") {
     const targetState = action === "confirm" ? "confirmada" : "rechazada";
     const currentState = data.citas?.estado;
@@ -225,6 +282,21 @@ export async function POST(request) {
         });
       }
     }
+
+    if (action === "confirm") {
+      const cleanupResult = await cleanupDuplicateAppointments(
+        client,
+        data.id_cita,
+        data.citas
+      );
+
+      if (cleanupResult?.error) {
+        return buildResponse("error", {
+          message: "No pudimos limpiar las citas duplicadas.",
+          details: cleanupResult.error.message,
+        });
+      }
+    }
   }
 
   if (tipo === "espera") {
@@ -241,26 +313,25 @@ export async function POST(request) {
       });
     }
 
-    const nextState = action === "confirm" ? "confirmada" : "rechazada";
-    if (currentState !== nextState) {
-      const { error: updateError } = await client
-        .from("esperas")
-        .update({ estado: nextState })
-        .eq("uuid", data.id_espera);
+    if (action === "reject") {
+      shouldDeleteWaitlist = true;
+    } else {
+      const nextState = "confirmada";
+      if (currentState !== nextState) {
+        const { error: updateError } = await client
+          .from("esperas")
+          .update({ estado: nextState })
+          .eq("uuid", data.id_espera);
 
-      if (updateError) {
-        return buildResponse("error", {
-          message: "No pudimos actualizar la espera.",
-          details: updateError.message,
-        });
+        if (updateError) {
+          return buildResponse("error", {
+            message: "No pudimos actualizar la espera.",
+            details: updateError.message,
+          });
+        }
       }
     }
   }
-
-  let webhookEvent = "";
-  let waitlistClientIds = [];
-  let waitlistClientPhones = [];
-  let waitlistClients = [];
 
   if (tipo === "eliminar" && action === "confirm") {
     if (!data.id_cita) {
@@ -327,6 +398,32 @@ export async function POST(request) {
       message: "No pudimos cerrar la confirmacion.",
       details: confirmationError.message,
     });
+  }
+
+  if (shouldDeleteWaitlist) {
+    const { error: confirmationDeleteError } = await client
+      .from("confirmaciones_esperas")
+      .delete()
+      .eq("uuid", data.uuid);
+
+    if (confirmationDeleteError) {
+      return buildResponse("error", {
+        message: "No pudimos eliminar la confirmacion de la espera.",
+        details: confirmationDeleteError.message,
+      });
+    }
+
+    const { error: waitlistDeleteError } = await client
+      .from("esperas")
+      .delete()
+      .eq("uuid", data.id_espera);
+
+    if (waitlistDeleteError) {
+      return buildResponse("error", {
+        message: "No pudimos eliminar la espera.",
+        details: waitlistDeleteError.message,
+      });
+    }
   }
 
   if (webhookEvent) {
