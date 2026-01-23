@@ -102,3 +102,18 @@ body {
     stroke-dashoffset: 0;
   }
 }
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--confetti-drift, 0px), 110vh, 0)
+      rotate(var(--confetti-rotate, 360deg));
+  }
+}
