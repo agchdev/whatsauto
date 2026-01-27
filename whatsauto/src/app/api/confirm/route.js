@@ -5,6 +5,10 @@ import { getSupabaseAdmin } from "../../../lib/supabaseAdmin";
 
 const VALID_TIPOS = new Set(["confirmar", "eliminar", "espera", "modificar"]);
 const DEFAULT_TIPO = "confirmar";
+const APPOINTMENT_CONFIRMATION_WEBHOOK_URL =
+  process.env.N8N_CONFIRMATION_WEBHOOK_URL ??
+  process.env.WHATSAPP_CONFIRMATION_WEBHOOK_URL ??
+  "https://n8n.srv1168532.hstgr.cloud/webhook/ab954f0d-cd30-4b94-990f-55377b13c93c";
 
 const TOKEN_SELECT =
   "uuid,id_cita,token_hash,expires_at,used_at,tipo,citas(id_empresa,id_empleado,id_servicio,id_cliente,estado,tiempo_inicio,tiempo_fin,titulo,descripcion,clientes(nombre,telefono),servicios(nombre,precio))";
@@ -20,6 +24,38 @@ const normalizeTipo = (value) =>
 const resolveTipo = (value) => normalizeTipo(value) || DEFAULT_TIPO;
 const normalizeStatus = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : "";
+
+const notifyAppointmentConfirmationWebhook = async (payload = {}) => {
+  if (!APPOINTMENT_CONFIRMATION_WEBHOOK_URL) {
+    return { skipped: true };
+  }
+
+  try {
+    const response = await fetch(APPOINTMENT_CONFIRMATION_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: "appointment_confirmation_result",
+        timestamp: new Date().toISOString(),
+        ...payload,
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn(
+        "Appointment confirmation webhook failed",
+        response.status,
+        response.statusText
+      );
+      return { ok: false, status: response.status };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    console.warn("Appointment confirmation webhook error", error);
+    return { ok: false, error };
+  }
+};
 
 const isExpired = (expiresAt) => {
   if (!expiresAt) return true;
@@ -301,6 +337,10 @@ export async function POST(request) {
         });
       }
     }
+
+    if (data.citas) {
+      data.citas.estado = targetState;
+    }
   }
 
   if (tipo === "espera") {
@@ -440,6 +480,7 @@ export async function POST(request) {
   }
 
   if (webhookEvent) {
+    const appointmentPayload = buildAppointmentPayload(data);
     const webhookToken = randomUUID();
     await notifyWebhook(webhookEvent, {
       action,
@@ -449,12 +490,34 @@ export async function POST(request) {
         id: data.uuid,
         tipo: data.tipo,
       },
-      appointment: buildAppointmentPayload(data),
+      appointment: appointmentPayload,
       waitlist_client_ids: waitlistClientIds,
       waitlist_client_phones: waitlistClientPhones,
       waitlist_clients: waitlistClients,
       waitlist_titles: waitlistClientTitles,
       waitlist_count: waitlistClientIds.length,
+    });
+  }
+
+  if (tipo === "confirmar") {
+    const appointmentPayload = buildAppointmentPayload(data);
+    const confirmationStatus = action === "confirm" ? "confirmada" : "rechazada";
+    const clientInfo = {
+      id: appointmentPayload.id_cliente ?? null,
+      nombre: appointmentPayload.cliente?.nombre ?? null,
+      telefono: appointmentPayload.cliente?.telefono ?? null,
+    };
+
+    await notifyAppointmentConfirmationWebhook({
+      action,
+      estado_confirmacion: confirmationStatus,
+      id_cita: data.id_cita,
+      confirmation: {
+        id: data.uuid,
+        tipo: data.tipo,
+      },
+      cliente: clientInfo,
+      appointment: appointmentPayload,
     });
   }
 
