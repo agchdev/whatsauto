@@ -649,7 +649,7 @@ export default function EmployeesPanel({
             const isSelected = selectedEmployee?.uuid === employee.uuid;
             const statusStyles =
               employee.activo === false
-                ? "border-rose-400/40 text-rose-200"
+                ? "border-[color:var(--danger-border)] text-[color:var(--danger-text)]"
                 : "border-emerald-300/40 text-emerald-200";
 
             return (
@@ -816,7 +816,7 @@ export default function EmployeesPanel({
                     <span
                       className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${
                         employee.activo === false
-                          ? "border-rose-400/40 text-rose-200"
+                          ? "border-[color:var(--danger-border)] text-[color:var(--danger-text)]"
                           : "border-emerald-300/40 text-emerald-200"
                       }`}
                     >
@@ -885,7 +885,9 @@ export default function EmployeesPanel({
           ) : (
             <>
               {scheduleError && (
-                <p className="mt-4 text-sm text-rose-200">{scheduleError}</p>
+                <p className="mt-4 text-sm text-[color:var(--danger-text)]">
+                  {scheduleError}
+                </p>
               )}
               {schedule.length ? (
                 <ul className="mt-4 space-y-3">
@@ -931,7 +933,7 @@ export default function EmployeesPanel({
                               Editar
                             </button>
                             <button
-                              className="rounded-full border border-rose-400/40 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-rose-200 transition hover:border-rose-400/70 disabled:cursor-not-allowed disabled:opacity-70"
+                              className="rounded-full border border-[color:var(--danger-border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--danger-text)] transition hover:border-[color:var(--danger-text)] disabled:cursor-not-allowed disabled:opacity-70"
                               disabled={scheduleSaving}
                               onClick={() => handleScheduleDelete(item)}
                               type="button"
@@ -986,7 +988,9 @@ export default function EmployeesPanel({
           ) : (
             <>
               {vacationsError && (
-                <p className="mt-4 text-sm text-rose-200">{vacationsError}</p>
+                <p className="mt-4 text-sm text-[color:var(--danger-text)]">
+                  {vacationsError}
+                </p>
               )}
               {vacations.length ? (
                 <ul className="mt-4 space-y-3">
@@ -1012,7 +1016,7 @@ export default function EmployeesPanel({
                             Editar
                           </button>
                           <button
-                            className="rounded-full border border-rose-400/40 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-rose-200 transition hover:border-rose-400/70 disabled:cursor-not-allowed disabled:opacity-70"
+                            className="rounded-full border border-[color:var(--danger-border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--danger-text)] transition hover:border-[color:var(--danger-text)] disabled:cursor-not-allowed disabled:opacity-70"
                             disabled={vacationSaving}
                             onClick={() => handleVacationDelete(item)}
                             type="button"
@@ -1152,7 +1156,7 @@ export default function EmployeesPanel({
             <div
               className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
                 status.type === "error"
-                  ? "border-rose-300/30 bg-rose-500/10 text-rose-200"
+                  ? "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]"
                   : status.type === "success"
                   ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-200"
                   : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--muted)]"
@@ -1276,7 +1280,7 @@ export default function EmployeesPanel({
           )}
 
           {scheduleError && (
-            <div className="mt-4 rounded-2xl border border-rose-300/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            <div className="mt-4 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
               {scheduleError}
             </div>
           )}
@@ -1357,7 +1361,7 @@ export default function EmployeesPanel({
           )}
 
           {vacationsError && (
-            <div className="mt-4 rounded-2xl border border-rose-300/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            <div className="mt-4 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 text-sm text-[color:var(--danger-text)]">
               {vacationsError}
             </div>
           )}

@@ -1,7 +1,8 @@
+import { useState } from "react";
 import LoginHero from "./LoginHero";
 
 const STATUS_STYLES = {
-  error: "border-rose-300/30 bg-rose-500/10 text-rose-200",
+  error: "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]",
   success: "border-emerald-300/30 bg-emerald-500/10 text-emerald-200",
   loading: "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--muted)]",
 };
@@ -14,40 +15,48 @@ const CompanyPasswordPanel = ({
   onSubmit,
   onSignOut,
 }) => {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const showStatus = status?.type && status.type !== "idle";
   const statusClass = STATUS_STYLES[status?.type] || STATUS_STYLES.loading;
 
   return (
     <section className="relative motion-safe:animate-[reveal_0.9s_ease-out_both] motion-safe:[animation-delay:180ms]">
-      <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-8 shadow-[0_32px_90px_-60px_rgba(0,0,0,0.9)] backdrop-blur">
+      <div className="rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-8 backdrop-blur">
         <div className="flex items-start justify-between gap-6">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--muted)]">
               Acceso protegido
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-[color:var(--foreground)]">
-              Contrasena de empresa
+              Contraseña de empresa
             </h2>
             <p className="mt-2 text-sm text-[color:var(--muted)]">
-              Verifica la contrasena de la empresa para continuar.
+              Verifica la contraseña de la empresa para continuar.
             </p>
           </div>
-          <span className="rounded-full bg-[color:var(--surface-strong)] px-3 py-1 text-xs font-semibold text-[color:var(--muted-strong)]">
-            Seguridad extra
-          </span>
         </div>
 
         <form className="mt-6 space-y-5" onSubmit={onSubmit}>
           <label className="block text-sm font-medium text-[color:var(--foreground)]">
             Contrasena
-            <input
-              autoComplete="current-password"
-              className="mt-2 w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 text-base text-[color:var(--foreground)] shadow-sm outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.35)]"
-              onChange={onPasswordChange}
-              placeholder="Introduce la contrasena de la empresa"
-              type="password"
-              value={password}
-            />
+            <div className="relative mt-2">
+              <input
+                autoComplete="current-password"
+                className="w-full rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-4 py-3 pr-20 text-base text-[color:var(--foreground)] shadow-sm outline-none transition focus:border-[color:var(--supabase-green)] focus:ring-2 focus:ring-[color:rgb(var(--supabase-green-rgb)/0.35)]"
+                onChange={onPasswordChange}
+                placeholder="Introduce la contrasena de la empresa"
+                type={isPasswordVisible ? "text" : "password"}
+                value={password}
+              />
+              <button
+                aria-pressed={isPasswordVisible}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-[color:var(--border)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--muted-strong)] transition hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)]"
+                onClick={() => setIsPasswordVisible((prev) => !prev)}
+                type="button"
+              >
+                {isPasswordVisible ? "Ocultar" : "Mostrar"}
+              </button>
+            </div>
           </label>
 
           {showStatus && (

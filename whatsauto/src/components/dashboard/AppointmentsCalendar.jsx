@@ -24,11 +24,11 @@ const STATUS_STYLES = {
   pendiente:
     "border-[color:var(--border)] bg-[color:var(--surface-strong)] text-[color:var(--muted-strong)]",
   rechazada:
-    "border-rose-400/40 bg-rose-500/10 text-rose-200",
+    "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]",
   realizada:
     "border-[color:var(--border)] bg-[color:var(--surface-strong)] text-[color:var(--muted)]",
   cancelada:
-    "border-rose-400/40 bg-rose-500/10 text-rose-200",
+    "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]",
 };
 
 const STATUS_OPTIONS = [
@@ -1064,7 +1064,7 @@ export default function AppointmentsCalendar({
             <div
               className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
                 formStatus.type === "error"
-                  ? "border-rose-300/30 bg-rose-500/10 text-rose-200"
+                  ? "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]"
                   : formStatus.type === "success"
                   ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-200"
                   : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--muted)]"
@@ -1165,9 +1165,9 @@ export default function AppointmentsCalendar({
                 <p
                   className={`mt-3 text-xs ${
                     regenStatus.type === "error"
-                      ? "text-rose-200"
+                      ? "text-[color:var(--danger-text)]"
                       : regenStatus.type === "success"
-                      ? "text-emerald-200"
+                      ? "text-[color:var(--supabase-green-dark)] font-semibold"
                       : "text-[color:var(--muted)]"
                   }`}
                 >
@@ -1216,7 +1216,7 @@ export default function AppointmentsCalendar({
 
           <div className="mt-5 flex flex-wrap gap-3">
             <button
-              className="rounded-2xl bg-[linear-gradient(135deg,var(--supabase-green),var(--supabase-green-dark))] px-5 py-3 text-sm font-semibold text-[#04140b] shadow-[0_18px_40px_-24px_rgba(31,157,107,0.6)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+              className="rounded-2xl bg-[linear-gradient(135deg,var(--supabase-green),var(--supabase-green-dark))] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_-24px_rgba(31,157,107,0.6)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
               disabled={isEditSaving}
               type="submit"
             >
@@ -1235,7 +1235,7 @@ export default function AppointmentsCalendar({
             <div
               className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
                 editStatus.type === "error"
-                  ? "border-rose-300/30 bg-rose-500/10 text-rose-200"
+                  ? "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]"
                   : editStatus.type === "success"
                   ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-200"
                   : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--muted)]"

@@ -13,7 +13,7 @@ const TYPE_LABELS = {
 const STATUS_STYLES = {
   pendiente: "border-[color:var(--border)] text-[color:var(--muted-strong)]",
   usada: "border-emerald-300/40 text-emerald-200",
-  expirada: "border-rose-400/40 text-rose-200",
+  expirada: "border-[color:var(--danger-border)] text-[color:var(--danger-text)]",
 };
 
 const isExpired = (expiresAt) => {

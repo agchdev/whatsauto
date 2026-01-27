@@ -335,7 +335,9 @@ export default function ClientsPanel({
               Cargando historial...
             </p>
           ) : historyError ? (
-            <p className="mt-4 text-sm text-rose-200">{historyError}</p>
+            <p className="mt-4 text-sm text-[color:var(--danger-text)]">
+              {historyError}
+            </p>
           ) : history.length ? (
             <>
               <div className="mt-4 space-y-3 md:hidden">
@@ -510,7 +512,7 @@ export default function ClientsPanel({
             <div
               className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
                 editStatus.type === "error"
-                  ? "border-rose-300/30 bg-rose-500/10 text-rose-200"
+                  ? "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]"
                   : editStatus.type === "success"
                   ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-200"
                   : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--muted)]"

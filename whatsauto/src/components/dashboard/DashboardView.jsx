@@ -166,7 +166,7 @@ export default function DashboardView({
           <CompanyHeader companyName={companyName} dataLoading={dataLoading} />
 
           {dataError && (
-            <div className="rounded-2xl border border-rose-300/30 bg-rose-500/10 px-5 py-4 text-sm text-rose-200">
+            <div className="rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-5 py-4 text-sm text-[color:var(--danger-text)]">
               {dataError}
             </div>
           )}

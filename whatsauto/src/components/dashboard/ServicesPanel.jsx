@@ -489,7 +489,7 @@ export default function ServicesPanel({
             <div
               className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
                 status.type === "error"
-                  ? "border-rose-300/30 bg-rose-500/10 text-rose-200"
+                  ? "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]"
                   : status.type === "success"
                   ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-200"
                   : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--muted)]"

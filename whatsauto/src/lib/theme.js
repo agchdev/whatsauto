@@ -49,6 +49,9 @@ export const applyPalette = (paletteKey) => {
   root.style.setProperty("--border", selected.border);
   root.style.setProperty("--muted", selected.muted);
   root.style.setProperty("--muted-strong", selected.mutedStrong);
+  root.style.setProperty("--danger-bg", selected.dangerBg);
+  root.style.setProperty("--danger-border", selected.dangerBorder);
+  root.style.setProperty("--danger-text", selected.dangerText);
   root.style.setProperty("--welyd-logo-url", `url("${logoPath}")`);
 
   updateFavicon(logoPath);

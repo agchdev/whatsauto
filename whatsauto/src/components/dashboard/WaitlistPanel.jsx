@@ -24,7 +24,8 @@ const WAITLIST_STATUS_LABELS = {
 const ASSIGN_BUTTON_STYLES = {
   available:
     "border-[color:var(--supabase-green)] bg-[color:rgb(var(--supabase-green-rgb)/0.18)] text-[color:var(--supabase-green)] hover:bg-[color:rgb(var(--supabase-green-rgb)/0.28)]",
-  unavailable: "border-rose-400/40 bg-rose-500/10 text-rose-200",
+  unavailable:
+    "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]",
 };
 const WAITLIST_PAGE_SIZE = 6;
 
@@ -520,7 +521,7 @@ export default function WaitlistPanel({
         <div
           className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
             status.type === "error"
-              ? "border-rose-300/30 bg-rose-500/10 text-rose-200"
+              ? "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]"
               : status.type === "success"
               ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-200"
               : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--muted)]"
@@ -685,7 +686,7 @@ export default function WaitlistPanel({
                       Editar
                     </button>
                     <button
-                      className="rounded-full border border-rose-400/40 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-rose-200 transition hover:border-rose-400/70"
+                      className="rounded-full border border-[color:var(--danger-border)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--danger-text)] transition hover:border-[color:var(--danger-text)]"
                       onClick={() => handleDelete(entry)}
                       type="button"
                     >
@@ -836,7 +837,7 @@ export default function WaitlistPanel({
                           Editar
                         </button>
                         <button
-                          className="rounded-full border border-rose-400/40 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-rose-200 transition hover:border-rose-400/70"
+                          className="rounded-full border border-[color:var(--danger-border)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--danger-text)] transition hover:border-[color:var(--danger-text)]"
                           onClick={() => handleDelete(entry)}
                           type="button"
                         >
@@ -955,7 +956,9 @@ export default function WaitlistPanel({
             </p>
           )}
           {optionsError && (
-            <p className="mt-3 text-xs text-rose-200">{optionsError}</p>
+            <p className="mt-3 text-xs text-[color:var(--danger-text)]">
+              {optionsError}
+            </p>
           )}
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -979,7 +982,7 @@ export default function WaitlistPanel({
             <div
               className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
                 status.type === "error"
-                  ? "border-rose-300/30 bg-rose-500/10 text-rose-200"
+                  ? "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]"
                   : status.type === "success"
                   ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-200"
                   : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--muted)]"

@@ -55,7 +55,7 @@ const BUTTON_BASE =
   "relative w-full rounded-2xl border px-4 py-3 text-sm font-semibold transition motion-safe:duration-300 motion-safe:transform-gpu motion-safe:hover:-translate-y-0.5 motion-safe:hover:scale-[1.01] motion-safe:active:translate-y-0 motion-safe:active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-70";
 const BUTTON_VARIANTS = {
   primary: `${BUTTON_BASE} border-[color:var(--border)] bg-[color:var(--surface-strong)] text-[color:var(--foreground)] hover:border-[color:var(--supabase-green)] hover:text-[color:var(--supabase-green)] focus-visible:outline-[color:var(--supabase-green)] motion-safe:hover:shadow-[0_14px_30px_-20px_rgba(47,111,237,0.45)]`,
-  danger: `${BUTTON_BASE} border-rose-400/40 bg-rose-500/10 text-rose-200 hover:border-rose-400/70 focus-visible:outline-rose-400 motion-safe:hover:shadow-[0_14px_30px_-20px_rgba(244,63,94,0.45)]`,
+  danger: `${BUTTON_BASE} border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] hover:border-[color:var(--danger-text)] focus-visible:outline-[color:var(--danger-text)] motion-safe:hover:shadow-[0_14px_30px_-20px_rgba(244,63,94,0.45)]`,
 };
 
 const MODAL_BUTTON_BASE =
@@ -75,10 +75,11 @@ const RESULT_CONFIG = {
   rejected: {
     title: "La solicitud ha sido rechazada",
     icon: "x",
-    ringClass: "border-rose-400/50 bg-rose-500/10",
-    ringPulseClass: "border-rose-400/70",
-    iconClass: "text-rose-400",
-    buttonClass: "hover:border-rose-400 hover:text-rose-500 focus-visible:outline-rose-400",
+    ringClass: "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)]",
+    ringPulseClass: "border-[color:var(--danger-border)]",
+    iconClass: "text-[color:var(--danger-text)]",
+    buttonClass:
+      "hover:border-[color:var(--danger-text)] hover:text-[color:var(--danger-text)] focus-visible:outline-[color:var(--danger-text)]",
   },
 };
 
